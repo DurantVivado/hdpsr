@@ -8,12 +8,6 @@ import "path/filepath"
 var testDiskFilePath = filepath.Join("examples", ".hdr.disks.path")
 
 //randomly generate file of different size and encode them into HDR system
-const (
-	KiB = 1 << 10
-	MiB = 1 << 20
-	GiB = 1 << 30
-	TiB = 1 << 40
-)
 
 var dataShards = []int{
 

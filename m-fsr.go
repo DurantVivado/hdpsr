@@ -10,7 +10,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) FullStripeMultiRecover(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+func (e *Erasure) FullStripeMultiRecover(fileName string,
+	slowLatency int, options *Options) (map[string]string, error) {
 	// start1 := time.Now()
 	failNum := 0
 	for i := 0; i < e.DiskNum; i++ {
@@ -42,7 +43,8 @@ func (e *Erasure) FullStripeMultiRecover(fileName string, slowLatency int, optio
 	j := e.DiskNum
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {
-			ReplaceMap[e.diskInfos[i].diskPath] = e.diskInfos[j].diskPath
+			ReplaceMap[e.diskInfos[i].diskPath] =
+				e.diskInfos[j].diskPath
 			replaceMap[i] = j
 			diskFailList[i] = true
 			j++
@@ -137,8 +139,8 @@ func (e *Erasure) FullStripeMultiRecover(fileName string, slowLatency int, optio
 		log.Printf("Start recovering with stripe, totally %d stripes need recovery",
 			stripeNum)
 	}
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / int(e.dataStripeSize)
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / int(e.dataStripeSize)
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -243,18 +245,19 @@ func (e *Erasure) FullStripeMultiRecover(fileName string, slowLatency int, optio
 	// fmt.Println("second phase costs: ", time.Since(start2).Seconds())
 
 	// start3 := time.Now()
-	err = e.updateDiskPath(replaceMap)
+	//err = e.updateDiskPath(replaceMap)
 	// fmt.Println("third phase costs: ", time.Since(start3).Seconds())
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}
 	return ReplaceMap, nil
 }
 
-func (e *Erasure) getStripes(diskFailList map[int]bool) (int, []int64) {
+func (e *Erasure) getStripes(diskFailList map[int]bool) (
+	int, []int64) {
 	stripes := make([]int64, 0)
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {

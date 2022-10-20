@@ -8,17 +8,17 @@ import (
 	"strings"
 )
 
-//the proportion of stripe where bitrot occurs of all stripes
+// the proportion of stripe where bitrot occurs of all stripes
 const stripeFailProportion = 0.3
 
-//Destroy simulates disk failure or bitrot:
+// Destroy simulates disk failure or bitrot:
 //
-//for `diskFail mode`, `failNum` random disks are marked as unavailable, `failName` is ignored.
+// for `diskFail mode`, `failNum` random disks are marked as unavailable, `failName` is ignored.
 //
 // for `bitRot`, `failNum` random blocks in a stripe of the file corrupts, that only works in Read Mode;
 //
 // Since it's a simulation, no real data will be lost.
-// Note that failNum = min(failNum, DiskNum).
+// Note that failNum = minInt(failNum, DiskNum).
 func (e *Erasure) Destroy(simOption *SimOptions) {
 	//if disk is currently unhealthy then give up
 	if !e.isDiskHealthy() {
@@ -104,7 +104,7 @@ func (e *Erasure) Destroy(simOption *SimOptions) {
 	}
 }
 
-//print disk status
+// print disk status
 func (e *Erasure) printDiskStatus() {
 	for i, disk := range e.diskInfos {
 
@@ -113,7 +113,7 @@ func (e *Erasure) printDiskStatus() {
 	}
 }
 
-//check system health
+// check system health
 // 1. if currently working disks' number is less than DiskNum, inform the user
 func (e *Erasure) isDiskHealthy() bool {
 	for _, v := range e.diskInfos[:e.DiskNum] {

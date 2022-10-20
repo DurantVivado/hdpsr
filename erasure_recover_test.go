@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-//test functionality of recover
-//if encountered error "too many open files", use `ulimit -n` to enlarge the max ope
+// test functionality of recover
+// if encountered error "too many open files", use `ulimit -n` to enlarge the max ope
 func TestRecover(t *testing.T) {
 	genTempDir()
 	testEC := &Erasure{
@@ -39,7 +39,7 @@ func TestRecover(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -115,7 +115,7 @@ func TestRecover(t *testing.T) {
 
 }
 
-//PASS
+// PASS
 func benchmarkRecover(b *testing.B, dataShards, parityShards, diskNum, failNum int, blockSize, fileMaxSize int64, fileNum int) {
 	b.ResetTimer()
 	genTempDir()
@@ -231,38 +231,38 @@ func benchmarkRecover(b *testing.B, dataShards, parityShards, diskNum, failNum i
 // 			b.Fatal(err)
 // 		}
 
-// 		err = testEC.ReadConfig()
-// 		if err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		_, err := testEC.EncodeFile(inpath)
-// 		if err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		err = testEC.WriteConfig()
-// 		if err != nil {
-// 			b.Fatal(err)
-// 		}
-// 	}
-// 	b.SetBytes(totalFileSize)
-// 	// oops, serveral disks shut down one by one
-// 	for i := 0; i < b.N; i++ {
-// 		testEC.Destroy("diskFail", failNum, "")
-// 		//Don't worry, I'll fix with that
-// 		_, err := testEC.RecoverReadK()
-// 		if err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		//restore diskConfigFile to previous content
-// 		if err := os.Rename(testDiskFilePath+".old", testDiskFilePath); err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		err = testEC.ReadDiskPath()
-// 		if err != nil {
-// 			b.Fatal(err)
-// 		}
-// 	}
-// }
+//			err = testEC.ReadConfig()
+//			if err != nil {
+//				b.Fatal(err)
+//			}
+//			_, err := testEC.EncodeFile(inpath)
+//			if err != nil {
+//				b.Fatal(err)
+//			}
+//			err = testEC.WriteConfig()
+//			if err != nil {
+//				b.Fatal(err)
+//			}
+//		}
+//		b.SetBytes(totalFileSize)
+//		// oops, serveral disks shut down one by one
+//		for i := 0; i < b.N; i++ {
+//			testEC.Destroy("diskFail", failNum, "")
+//			//Don't worry, I'll fix with that
+//			_, err := testEC.RecoverReadK()
+//			if err != nil {
+//				b.Fatal(err)
+//			}
+//			//restore diskConfigFile to previous content
+//			if err := os.Rename(testDiskFilePath+".old", testDiskFilePath); err != nil {
+//				b.Fatal(err)
+//			}
+//			err = testEC.ReadDiskPath()
+//			if err != nil {
+//				b.Fatal(err)
+//			}
+//		}
+//	}
 func BenchmarkReccover2x1x3x1x512x1Mx50(b *testing.B) {
 	benchmarkRecover(b, 2, 1, 3, 1, 512, 1*MiB, 50)
 }

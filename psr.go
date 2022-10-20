@@ -98,6 +98,7 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 	// read blocks every stripe in parallel
 	stripeNum := len(e.StripeInDisk[failDisk])
 	numBlob := ceilFracInt(stripeNum, e.ConStripes)
+	// the number of parts to which the stripe repair process is split
 	group := 2
 	blobBuf := makeArr3DByte(e.ConStripes, group, int(e.BlockSize))
 	stripeCnt := 0
@@ -212,11 +213,11 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 	// fmt.Println("second phase costs: ", time.Since(start2).Seconds())
 
 	// start3 := time.Now()
-	err = e.updateDiskPath(replaceMap)
+	//err = e.updateDiskPath(replaceMap)
 	// fmt.Println("third phase costs: ", time.Since(start3).Seconds())
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

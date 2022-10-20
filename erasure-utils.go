@@ -7,18 +7,22 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
-//A Go-version Set
+// A Go-version Set
 type IntSet map[int]struct{}
 
 func (is *IntSet) Insert(x int) {
@@ -73,7 +77,7 @@ func sumInt(arrs []int, base int) int {
 	return sum
 }
 
-//consult user to avoid maloperation
+// consult user to avoid maloperation
 func consultUserBeforeAction() (bool, error) {
 	fmt.Println("If you are sure to proceed, type:\n [Y]es or [N]o.")
 	inputReader := bufio.NewReader(os.Stdin)
@@ -96,7 +100,7 @@ func consultUserBeforeAction() (bool, error) {
 
 //an instant error dealer
 
-//look if path exists
+// look if path exists
 func pathExist(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -108,17 +112,17 @@ func pathExist(path string) (bool, error) {
 	return false, err
 }
 
-//ceilFrac return (a+b-1)/b
+// ceilFrac return (a+b-1)/b
 func ceilFracInt(a, b int) int {
 	return (a + b - 1) / b
 }
 
-//ceilFrac return (a+b-1)/b
+// ceilFrac return (a+b-1)/b
 func ceilFracInt64(a, b int64) int64 {
 	return (a + b - 1) / b
 }
 
-func min(args ...int) int {
+func minInt(args ...int) int {
 	if len(args) == 0 {
 		return 0x7fffffff
 	}
@@ -131,7 +135,7 @@ func min(args ...int) int {
 	return ret
 }
 
-func max(args ...int) int {
+func maxInt(args ...int) int {
 	if len(args) == 0 {
 		return 0xffffffff
 	}
@@ -144,7 +148,44 @@ func max(args ...int) int {
 	return ret
 }
 
-//each stripe randomized distribution
+func minFloat64(args ...float64) float64 {
+	if len(args) == 0 {
+		return 0
+	}
+	ret := args[0]
+	for _, arg := range args {
+		if arg < ret {
+			ret = arg
+		}
+	}
+	return ret
+}
+
+func maxFloat64(args ...float64) float64 {
+	if len(args) == 0 {
+		return 0
+	}
+	ret := args[0]
+	for _, arg := range args {
+		if arg > ret {
+			ret = arg
+		}
+	}
+	return ret
+}
+
+func sumFloat64(args ...float64) float64 {
+	if len(args) == 0 {
+		return 0
+	}
+	ret := float64(0)
+	for _, arg := range args {
+		ret += arg
+	}
+	return ret
+}
+
+// each stripe randomized distribution
 func genRandomArr(n, start int) []int {
 	shuff := make([]int, n)
 	for i := 0; i < n; i++ {
@@ -155,7 +196,7 @@ func genRandomArr(n, start int) []int {
 	return shuff
 }
 
-//get arr of default sequence
+// get arr of default sequence
 func getSeqArr(n int) []int {
 	out := make([]int, n)
 	for i := 0; i < n; i++ {
@@ -164,12 +205,12 @@ func getSeqArr(n int) []int {
 	return out
 }
 
-//classical robin-round style
-//e.g.
-//1 2 3 4 5
-//5 1 2 3 4
-//4 5 1 2 3
-//...
+// classical robin-round style
+// e.g.
+// 1 2 3 4 5
+// 5 1 2 3 4
+// 4 5 1 2 3
+// ...
 func rightRotateLayout(row, col int) [][]int {
 	arr2D := make([][]int, row)
 	for i := 0; i < row; i++ {
@@ -192,7 +233,7 @@ func goroutineNum() int {
 	return runtime.NumGoroutine()
 }
 
-//make an 2D byte slice
+// make an 2D byte slice
 func makeArr2DByte(row, col int) [][]byte {
 	out := make([][]byte, row)
 	for i := range out {
@@ -201,7 +242,7 @@ func makeArr2DByte(row, col int) [][]byte {
 	return out
 }
 
-//make an 3D byte slice
+// make an 3D byte slice
 func makeArr3DByte(x, y, z int) [][][]byte {
 	out := make([][][]byte, x)
 	for i := range out {
@@ -213,7 +254,7 @@ func makeArr3DByte(x, y, z int) [][][]byte {
 	return out
 }
 
-//make an 2D int slice
+// make an 2D int slice
 func makeArr2DInt(row, col int) [][]int {
 	out := make([][]int, row)
 	for i := range out {
@@ -222,8 +263,8 @@ func makeArr2DInt(row, col int) [][]int {
 	return out
 }
 
-//check if two file are completely same
-//warning: use io.copy
+// check if two file are completely same
+// warning: use io.copy
 func checkFileIfSame(dst, src string) (bool, error) {
 	if ok, err := pathExist(dst); err != nil || !ok {
 		return false, err
@@ -252,7 +293,7 @@ func checkFileIfSame(dst, src string) (bool, error) {
 	return hashDst == hashSrc, nil
 }
 
-//retain hashstr
+// retain hashstr
 func hashStr(f *os.File) (string, error) {
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
@@ -262,7 +303,7 @@ func hashStr(f *os.File) (string, error) {
 	return out, nil
 }
 
-//fillRandom
+// fillRandom
 func fillRandom(p []byte) {
 	for i := 0; i < len(p); i += 7 {
 		val := rand.Int()
@@ -273,7 +314,7 @@ func fillRandom(p []byte) {
 	}
 }
 
-//string2Slice
+// string2Slice
 func stringToSlice2D(s string) [][]int {
 	s = strings.Trim(s, "[]\n")
 	strs := strings.Split(s, ",")
@@ -289,7 +330,7 @@ func stringToSlice2D(s string) [][]int {
 	return out
 }
 
-//copyfile
+// copyfile
 func copyFile(srcFile, destFile string) (int64, error) {
 	file1, err := os.Open(srcFile)
 	if err != nil {
@@ -310,19 +351,19 @@ func execShell(command string) ([]byte, error) {
 	stdout, err := cmd.StdoutPipe()
 	defer stdout.Close()
 	if err != nil {
-		fmt.Printf("Error:can not obtain stdout pipe for command:%s\n", err)
+		log.Printf("Error:can not obtain stdout pipe for command:%s\n", err)
 		return nil, err
 	}
 
 	if err := cmd.Start(); err != nil {
-		fmt.Println("Error:The command is err,", err)
+		log.Println("Error:The command is err,", err)
 		return nil, err
 	}
 
 	result, _ := ioutil.ReadAll(stdout)
 
 	if err := cmd.Wait(); err != nil {
-		fmt.Println("wait:", err.Error())
+		log.Println("wait:", err.Error())
 		return nil, err
 	}
 	return result, nil
@@ -385,4 +426,92 @@ func parseIoStat(iostat string) (float64, float64, error) {
 		return 0, 0, errIoStatNotFound
 	}
 	return await, svctm, nil
+}
+
+// sliceMax returns the max value of a slice
+func sliceMax(slice []float64) float64 {
+	var max float64 = 0
+	for i := range slice {
+		if max < slice[i] {
+			max = slice[i]
+		}
+	}
+	return max
+}
+
+// sliceSum returns the sum of `slice“
+func sliceSum(slice []float64) float64 {
+	var res float64 = 0
+	for i := range slice {
+		res += slice[i]
+	}
+	return res
+}
+
+// sliceMinIndex returns the min value of `slice`
+func sliceMinIndex(slice []float64) (float64, int) {
+	if len(slice) == 0 {
+		return 0, -1
+	}
+	var res float64 = slice[0]
+	var index int = 0
+	for i := 1; i < len(slice); i++ {
+		if slice[i] < res {
+			res = slice[i]
+			index = i
+		}
+	}
+	return res, index
+}
+
+// sliceSub substracts `sub` from each value of `slice`
+func sliceSub(slice []float64, sub float64) {
+	for i := range slice {
+		slice[i] -= sub
+	}
+}
+
+// sort2DArray sorts each line of `data` in reversed order
+func sort2DArray(data [][]float64) {
+	for i := range data {
+		sort.Sort(sort.Reverse(sort.Float64Slice(data[i])))
+	}
+}
+
+// getDiskBandwidth reads a fix-sized chunk and get the disk bandwidth
+func (e *Erasure) getDiskBandwidth(ifs []*os.File) {
+	erg := new(errgroup.Group)
+	for i, disk := range e.diskInfos[0:e.DiskNum] {
+		i := i
+		disk := disk
+		erg.Go(func() error {
+			if !disk.available {
+				return nil
+			}
+			buf := make([]byte, 50*KiB)
+			start := time.Now()
+			_, err = ifs[i].Read(buf)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			disk.bandwidth =
+				float64(50) / (1024 * time.Since(start).Seconds())
+			return nil
+		})
+	}
+	if err := erg.Wait(); err != nil {
+		if !e.Quiet {
+			log.Printf("read failed %s", err.Error())
+		}
+	}
+	if !e.Quiet {
+		for _, disk := range e.diskInfos[0:e.DiskNum] {
+			log.Printf("%s bandwidth %.3f Byte/s\n",
+				disk.diskPath, disk.bandwidth)
+		}
+	}
+}
+
+// get disk bandwidth using fio
+func (e *Erasure) fioGetDiskBW() {
 }

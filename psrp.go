@@ -94,8 +94,8 @@ func (e *Erasure) PartialStripeRecoverPlus(fileName string, slowLatency int, int
 	// read stripes every blob in parallel
 	// read blocks every stripe in parallel
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / (intraStripe * int(e.BlockSize))
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / (intraStripe * int(e.BlockSize))
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -230,10 +230,10 @@ func (e *Erasure) PartialStripeRecoverPlus(fileName string, slowLatency int, int
 		stripeCnt += nextStripe
 	}
 
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	//err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

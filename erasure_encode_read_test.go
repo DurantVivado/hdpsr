@@ -1,5 +1,4 @@
 // This test unit tests the encoding and decoding efficiency
-//
 package hdpsr
 
 import (
@@ -15,7 +14,7 @@ import (
 
 //-------------------------TEST UNIT----------------------------
 
-//genTempDir creates /input and /output dir in workspace root
+// genTempDir creates /input and /output dir in workspace root
 func genTempDir() {
 	if ok, err := pathExist("input"); !ok && err == nil {
 		if err := os.Mkdir("input", 0644); err != nil {
@@ -33,7 +32,7 @@ func genTempDir() {
 	}
 }
 
-//generateRandomFileSize generate `num` files within range [minSize, maxSize]
+// generateRandomFileSize generate `num` files within range [minSize, maxSize]
 func generateRandomFileSize(minSize, maxSize int64, num int) []int64 {
 	out := make([]int64, num)
 	for i := 0; i < num; i++ {
@@ -64,7 +63,7 @@ func generateRandomFileBySize(filename string, fileSize int64) error {
 	return nil
 }
 
-//deleteTempFiles deletes temporary generated files as well as folders
+// deleteTempFiles deletes temporary generated files as well as folders
 func deleteTempFiles(tempFileSizes []int64) {
 	for _, fileSize := range tempFileSizes {
 		inpath := filepath.Join("input", fmt.Sprintf("temp-%d", fileSize))
@@ -86,7 +85,7 @@ func deleteTempFiles(tempFileSizes []int64) {
 	}
 }
 
-//deleteTempFilesGroup deletes temporary generated file groups
+// deleteTempFilesGroup deletes temporary generated file groups
 func deleteTempFileGroup(inpath, outpath []string) {
 	for i := range inpath {
 		if ex, _ := pathExist(inpath[i]); !ex {
@@ -134,7 +133,7 @@ func TestEncodeDecodeNormal(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -187,7 +186,7 @@ func TestEncodeDecodeNormal(t *testing.T) {
 
 // PASS
 
-//Test when one disk fails
+// Test when one disk fails
 func TestEncodeDecodeOneFailure(t *testing.T) {
 	//we generate temp data and encode it into real storage sytem
 	//after that, all temporary file should be deleted
@@ -218,7 +217,7 @@ func TestEncodeDecodeOneFailure(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -272,7 +271,7 @@ func TestEncodeDecodeOneFailure(t *testing.T) {
 
 //Test Parallel requests from clients
 
-//Test when two disk fails
+// Test when two disk fails
 func TestEncodeDecodeTwoFailure(t *testing.T) {
 	//we generate temp data and encode it into real storage sytem
 	//after that, all temporary file should be deleted
@@ -303,7 +302,7 @@ func TestEncodeDecodeTwoFailure(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -383,7 +382,7 @@ func TestEncodeDecodeBitRot(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m + 1; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m + 1; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -438,7 +437,7 @@ func TestEncodeDecodeBitRot(t *testing.T) {
 
 }
 
-//Test degraded read when one disk fails
+// Test degraded read when one disk fails
 func TestEncodeDecodeOneFailureDegraded(t *testing.T) {
 	//we generate temp data and encode it into real storage sytem
 	//after that, all temporary file should be deleted
@@ -469,7 +468,7 @@ func TestEncodeDecodeOneFailureDegraded(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -523,7 +522,7 @@ func TestEncodeDecodeOneFailureDegraded(t *testing.T) {
 
 //Test Parallel requests from clients
 
-//Test degraded read when two disk fails
+// Test degraded read when two disk fails
 func TestEncodeDecodeTwoFailureDegraded(t *testing.T) {
 	//we generate temp data and encode it into real storage sytem
 	//after that, all temporary file should be deleted
@@ -555,7 +554,7 @@ func TestEncodeDecodeTwoFailureDegraded(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -632,7 +631,7 @@ func TestRemove(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -678,9 +677,9 @@ func TestRemove(t *testing.T) {
 
 }
 
-//PASS
-//---------------------BENCHMARK---------------------------------
-//Benchmarks dataShards, parityShards, diskNum, blockSize, fileSize
+// PASS
+// ---------------------BENCHMARK---------------------------------
+// Benchmarks dataShards, parityShards, diskNum, blockSize, fileSize
 func benchmarkEncodeDecode(b *testing.B, dataShards, parityShards, diskNum int, blockSize, fileSize int64) {
 	b.ResetTimer()
 	b.SetBytes(fileSize)
@@ -1071,7 +1070,7 @@ func BenchmarkParallel_20x4x24x4096x1Mx200xdegrade(b *testing.B) {
 	benchmarkParallel(b, 20, 4, 24, 4096, 10*MiB, 200, true)
 }
 
-//the impact of conStripe
+// the impact of conStripe
 func benchmarkEncodeDecodeConstripe(b *testing.B, conStripe, dataShards, parityShards, diskNum int, blockSize, fileSize int64, failNum int, degrade bool) {
 	b.ResetTimer()
 	b.SetBytes(fileSize)

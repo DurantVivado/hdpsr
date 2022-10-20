@@ -25,7 +25,7 @@ func changeRandom(filePath string, fileSize, num, mode int) error {
 	data := make([]byte, fileSize)
 	buf.Read(data)
 
-	num = min(num, fileSize)
+	num = minInt(num, fileSize)
 
 	switch mode {
 	case 1:
@@ -92,7 +92,7 @@ func TestUpdateNormalExchange(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -174,7 +174,7 @@ func TestUpdateNormalAppend(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -256,7 +256,7 @@ func TestUpdateNormalDelete(t *testing.T) {
 		testEC.K = k
 		for _, m := range parityShards {
 			testEC.M = m
-			for N := k + m; N <= min(k+m+4, totalDisk); N++ {
+			for N := k + m; N <= minInt(k+m+4, totalDisk); N++ {
 				testEC.DiskNum = N
 				for _, bs := range blockSizesV1 {
 					testEC.BlockSize = bs
@@ -310,7 +310,7 @@ func TestUpdateNormalDelete(t *testing.T) {
 	}
 }
 
-//---------------------BENCHMARK---------------------------------
+// ---------------------BENCHMARK---------------------------------
 func benchmarkUpdate(b *testing.B, dataShards, parityShards, diskNum int, blockSize, fileSize int64) {
 	genTempDir()
 	b.ResetTimer()

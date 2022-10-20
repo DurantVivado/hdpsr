@@ -21,8 +21,8 @@ import (
 // 	filenum int
 // }
 
-//diskInfo contains the disk-level information
-//but not mechanical and electrical parameters
+// diskInfo contains the disk-level information
+// but not mechanical and electrical parameters
 type diskInfo struct {
 	// id
 	diskId int64
@@ -58,7 +58,7 @@ type diskInfo struct {
 	busy bool
 }
 
-//Erasure is the critical erasure coding structure
+// Erasure is the critical erasure coding structure
 // contains fundamental encode/decode parameters
 type Erasure struct {
 	// the number of data blocks in a stripe
@@ -134,8 +134,8 @@ type Erasure struct {
 	SlowNum int `json:"slowNum"`
 }
 
-//fileInfo defines the file-level information,
-//it's concurrently safe
+// fileInfo defines the file-level information,
+// it's concurrently safe
 type fileInfo struct {
 	//fild ID
 	FileId int64 `json:"fileId"`
@@ -187,13 +187,13 @@ type blockInfo struct {
 	bstat blockStat
 }
 
-//Options define the parameters for read and recover mode
+// Options define the parameters for read and recover mode
 type Options struct {
 	//Degrade tells if degrade read is on
 	Degrade bool
 }
 
-//SimOptions defines the parameters for simulation
+// SimOptions defines the parameters for simulation
 type SimOptions struct {
 	//switch between "diskFail" and "bitRot"
 	Mode string
@@ -205,21 +205,21 @@ type SimOptions struct {
 	FileName string
 }
 
-//global system-level variables
+// global system-level variables
 var (
 	err error
 )
 
-//constant variables
+// constant variables
 const (
 	blkOK         blockStat = 0
 	blkFail       blockStat = 1
 	tempFile                = "./test/file.temp"
 	maxGoroutines           = 10240
 	intBit                  = 64
-	GB                      = 1024 * 1024 * 1024
-	MB                      = 1024 * 1024
-	KB                      = 1024
+	GiB                     = 1024 * 1024 * 1024
+	MiB                     = 1024 * 1024
+	KiB                     = 1024
 )
 
 //templates

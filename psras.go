@@ -21,7 +21,7 @@ func (e *Erasure) getIntraStripeFast() int {
 				cnt++
 			}
 		}
-		intraStripe = max(intraStripe, cnt)
+		intraStripe = maxInt(intraStripe, cnt)
 	}
 	if intraStripe > e.K/2 {
 		intraStripe = e.K / 2
@@ -31,7 +31,9 @@ func (e *Erasure) getIntraStripeFast() int {
 	return intraStripe
 }
 
-func (e *Erasure) PartialStripeRecoverSlowerFirst(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeRecoverSlowerFirst(
+	fileName string, slowLatency int, options *Options) (
+	map[string]string, error) {
 	var failDisk int = 0
 	for i := range e.diskInfos {
 		if !e.diskInfos[i].available {
@@ -130,8 +132,8 @@ func (e *Erasure) PartialStripeRecoverSlowerFirst(fileName string, slowLatency i
 	// read stripes every blob in parallel
 	// read blocks every stripe in parallel
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / (intraStripe * int(e.BlockSize))
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / (intraStripe * int(e.BlockSize))
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -251,10 +253,10 @@ func (e *Erasure) PartialStripeRecoverSlowerFirst(fileName string, slowLatency i
 	}
 	// fmt.Println("recover time: ", time.Since(start).Seconds())
 
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	// err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

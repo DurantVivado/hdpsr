@@ -10,7 +10,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) PartialStripeMultiRecoverPreliminary(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeMultiRecoverPreliminary(
+	fileName string, slowLatency int, options *Options) (
+	map[string]string, error) {
 	failNum := 0
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {
@@ -38,7 +40,8 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(fileName string, slowLate
 	j := e.DiskNum
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {
-			ReplaceMap[e.diskInfos[i].diskPath] = e.diskInfos[j].diskPath
+			ReplaceMap[e.diskInfos[i].diskPath] =
+				e.diskInfos[j].diskPath
 			replaceMap[i] = j
 			diskFailList[i] = true
 			j++
@@ -142,8 +145,8 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(fileName string, slowLate
 		log.Printf("Start recovering with stripe, totally %d stripes need recovery",
 			stripeNum)
 	}
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / (intraStripe * int(e.BlockSize))
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / (intraStripe * int(e.BlockSize))
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("no stripes to be recovered or memory size is too small")
 	}
@@ -277,10 +280,10 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(fileName string, slowLate
 	}
 	// fmt.Println("recover time: ", time.Since(start).Seconds())
 
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	//err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

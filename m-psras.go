@@ -148,8 +148,8 @@ func (e *Erasure) PartialStripeMultiRecoverSlowerFirst(fileName string, slowLate
 		log.Printf("Start recovering with stripe, totally %d stripes need recovery",
 			stripeNum)
 	}
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / (intraStripe * int(e.BlockSize))
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / (intraStripe * int(e.BlockSize))
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -283,10 +283,10 @@ func (e *Erasure) PartialStripeMultiRecoverSlowerFirst(fileName string, slowLate
 	}
 	// fmt.Println("recover time: ", time.Since(start).Seconds())
 
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	//err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

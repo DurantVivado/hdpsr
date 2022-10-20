@@ -47,7 +47,8 @@ func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency int, 
 	ReplaceMap := make(map[string]string)
 	diskFailList := make(map[int]bool, 1)
 
-	ReplaceMap[e.diskInfos[failDisk].diskPath] = e.diskInfos[e.DiskNum].diskPath
+	ReplaceMap[e.diskInfos[failDisk].diskPath] =
+		e.diskInfos[e.DiskNum].diskPath
 	replaceMap[failDisk] = e.DiskNum
 	diskFailList[failDisk] = true
 
@@ -113,8 +114,8 @@ func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency int, 
 	start := time.Now()
 
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / int(e.dataStripeSize)
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / int(e.dataStripeSize)
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -171,9 +172,17 @@ func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency int, 
 						continue
 					}
 					if !e.diskInfos[diskId].slow {
-						nodeArr[0] = append(nodeArr[0], &node{diskId: diskId, idx: i, blockId: i + fail})
+						nodeArr[0] = append(nodeArr[0], &node{
+							diskId:  diskId,
+							idx:     i,
+							blockId: i + fail,
+						})
 					} else {
-						nodeArr[1] = append(nodeArr[1], &node{diskId: diskId, idx: i, blockId: i + fail})
+						nodeArr[1] = append(nodeArr[1], &node{
+							diskId:  diskId,
+							idx:     i,
+							blockId: i + fail,
+						})
 					}
 				}
 				sent := 0
@@ -253,10 +262,10 @@ func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency int, 
 	}
 	// fmt.Println("recover time: ", time.Since(start).Seconds())
 
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	// err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

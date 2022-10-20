@@ -1,0 +1,4 @@
+    psrap algorithm running time: 0.000093
+    psrap algorithm running time: 0.000229
+    psrap algorithm running time: 0.001024
+    psras algorithm running time: 0.000002

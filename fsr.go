@@ -99,8 +99,8 @@ func (e *Erasure) FullStripeRecover(fileName string, slowLatency int, options *O
 	// read stripes every blob in parallel
 	// read blocks every stripe in parallel
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / int(e.dataStripeSize)
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / int(e.dataStripeSize)
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -198,11 +198,11 @@ func (e *Erasure) FullStripeRecover(fileName string, slowLatency int, options *O
 	// fmt.Println("second phase costs: ", time.Since(start2).Seconds())
 
 	// start3 := time.Now()
-	err = e.updateDiskPath(replaceMap)
+	//err = e.updateDiskPath(replaceMap)
 	// fmt.Println("third phase costs: ", time.Since(start3).Seconds())
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}

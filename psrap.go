@@ -7,52 +7,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
-func sliceMax(slice []float64) float64 {
-	var max float64 = 0
-	for i := range slice {
-		if max < slice[i] {
-			max = slice[i]
-		}
-	}
-	return max
-}
-
-func sliceSum(slice []float64) float64 {
-	var res float64 = 0
-	for i := range slice {
-		res += slice[i]
-	}
-	return res
-}
-
-func sliceMinIndex(slice []float64) (float64, int) {
-	if len(slice) == 0 {
-		return 0, -1
-	}
-	var res float64 = slice[0]
-	var index int = 0
-	for i := 1; i < len(slice); i++ {
-		if slice[i] < res {
-			res = slice[i]
-			index = i
-		}
-	}
-	return res, index
-}
-
-func sliceSub(slice []float64, sub float64) {
-	for i := range slice {
-		slice[i] -= sub
-	}
-}
-
-func reductFirst(arr [][]float64, is int) []float64 {
+func reduceFirst(arr [][]float64, is int) []float64 {
 	s := len(arr)
 	if s == 0 {
 		return nil
@@ -74,7 +34,7 @@ func reductFirst(arr [][]float64, is int) []float64 {
 				start = is + (i-1)*(is-1)
 			}
 			end := is + i*(is-1)
-			end = min(end, len(line))
+			end = minInt(end, len(line))
 			t = append(t, sliceMax(line[start:end]))
 		}
 		tmp = append(tmp, t)
@@ -85,7 +45,7 @@ func reductFirst(arr [][]float64, is int) []float64 {
 	return res
 }
 
-func reductSecond(arr []float64, conStripe int) float64 {
+func reduceSecond(arr []float64, conStripe int) float64 {
 	s := len(arr)
 	if s == 0 {
 		return 0
@@ -111,20 +71,19 @@ func reductSecond(arr []float64, conStripe int) float64 {
 	return time
 }
 
-func reduct(data [][]float64, is int, mem int, blockSize int) float64 {
-	if len(data) == 0 {
+func reduce(data [][]float64, is int, mem int, blockSize int) float64 {
+	if len(data) == 0 || len(data[0]) == 0 {
 		return 0
 	}
-	if len(data[0]) == 0 {
-		return 0
-	}
+	// how many intrastripe can be put in the memory at the same time
 	conStripe := mem / (is * blockSize)
-	conStripe = min(conStripe, len(data))
-	dedata := reductFirst(data, is)
-	time := reductSecond(dedata, conStripe)
+	conStripe = minInt(conStripe, len(data))
+	dedata := reduceFirst(data, is)
+	time := reduceSecond(dedata, conStripe)
 	return time
 }
 
+// Calculate the read time for each single block
 func (e *Erasure) getData(slowLatency int) [][]float64 {
 	data := make([][]float64, len(e.Stripes))
 	for i := range data {
@@ -151,55 +110,23 @@ func (e *Erasure) getData(slowLatency int) [][]float64 {
 	return data
 }
 
-func sort2DArray(data [][]float64) {
-	for i := range data {
-		sort.Sort(sort.Reverse(sort.Float64Slice(data[i])))
-	}
-}
-
 func (e *Erasure) getIntraStripeOptimal(slowLatency int) int {
 	data := e.getData(slowLatency)
 	sort2DArray(data)
 	var minIs int = 2
-	var minTime float64 = reduct(data, 2, e.MemSize*GB, int(e.BlockSize))
+	var minTime float64 = reduce(data, 2, e.MemSize*GiB, int(e.BlockSize))
 	for is := 3; is <= e.K/2; is++ {
-		time := reduct(data, is, e.MemSize*GB, int(e.BlockSize))
+		time := reduce(data, is, e.MemSize*GiB, int(e.BlockSize))
 		if time < minTime {
 			minTime = time
 			minIs = is
 		}
 	}
-	time := reduct(data, e.K, e.MemSize*GB, int(e.BlockSize))
+	time := reduce(data, e.K, e.MemSize*GiB, int(e.BlockSize))
 	if minTime > time {
 		minIs = e.K
 	}
 	return minIs
-}
-
-func (e *Erasure) getDiskBandwidth(ifs []*os.File) {
-	erg := new(errgroup.Group)
-	for i, disk := range e.diskInfos[0:e.DiskNum] {
-		i := i
-		disk := disk
-		erg.Go(func() error {
-			if !disk.available {
-				return nil
-			}
-			buf := make([]byte, 50*KB)
-			start := time.Now()
-			_, err = ifs[i].Read(buf)
-			if err != nil && err != io.EOF {
-				return err
-			}
-			disk.bandwidth = float64(50) / (1024 * time.Since(start).Seconds())
-			return nil
-		})
-	}
-	if err := erg.Wait(); err != nil {
-		if !e.Quiet {
-			log.Printf("read failed %s", err.Error())
-		}
-	}
 }
 
 func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency int, options *Options) (map[string]string, error) {
@@ -284,6 +211,7 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 	defer rfs.Close()
 
 	start := time.Now()
+	// measure the bandwidth of each disk
 	e.getDiskBandwidth(ifs)
 	intraStripe := e.getIntraStripeOptimal(slowLatency)
 	t := time.Since(start).Seconds()
@@ -303,8 +231,8 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 	// read stripes every blob in parallel
 	// read blocks every stripe in parallel
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * 1024 * 1024 * 1024) / (intraStripe * int(e.BlockSize))
-	e.ConStripes = min(e.ConStripes, stripeNum)
+	e.ConStripes = (e.MemSize * GiB) / (intraStripe * int(e.BlockSize))
+	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("no stripes to be recovered or memory size is too small")
 	}
@@ -343,6 +271,7 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 				}
 				invalidIndices := []int{invalidIndice}
 				// invalidIndices = append(invalidIndices, invalidIndice)
+				// get the decoded matrix of failed vector
 				decodeMatrix, err := e.enc.GetDecodeMatrix(invalidIndices)
 				if err != nil {
 					return err
@@ -357,9 +286,16 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 						i -= 1
 						continue
 					}
-					stripeToDiskArr = append(stripeToDiskArr, &sortNode{diskId: diskId, idx: i, blockId: i + fail, latency: e.diskInfos[diskId].latency})
+					stripeToDiskArr = append(stripeToDiskArr,
+						&sortNode{
+							diskId:  diskId,
+							idx:     i,
+							blockId: i + fail,
+							latency: e.diskInfos[diskId].latency,
+						})
 				}
 				for len(stripeToDiskArr) > 0 {
+					// get the biggest K disks of the stripe by latency
 					group := BiggestK(stripeToDiskArr, intraStripe)
 					for i := range group {
 						i := i
@@ -380,9 +316,16 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 					}
 					inputsIdx := make([]int, 0)
 					for i := range group {
-						inputsIdx = append(inputsIdx, int(group[i].idx))
+						inputsIdx = append(inputsIdx,
+							int(group[i].idx))
 					}
-					tempShard, err = e.enc.RecoverWithSomeShards(decodeMatrix, blobBuf[s][:len(group)], inputsIdx, invalidIndice, tempShard)
+					tempShard, err = e.enc.RecoverWithSomeShards(
+						decodeMatrix,
+						blobBuf[s][:len(group)],
+						inputsIdx,
+						invalidIndice,
+						tempShard,
+					)
 					if err != nil {
 						return err
 					}
@@ -424,10 +367,10 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 	}
 	// fmt.Println("recover time: ", time.Since(start).Seconds())
 
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	//err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}
