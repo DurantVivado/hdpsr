@@ -46,7 +46,7 @@ func (e *Erasure) Destroy(simOption *SimOptions) {
 			log.Println("simulate failure on:")
 		}
 
-		shuff := genRandomArr(e.DiskNum, 0)
+		shuff := genRandArrInt(e.DiskNum, 0)
 		for i := 0; i < simOption.FailNum; i++ {
 
 			if !e.Quiet {
@@ -68,9 +68,9 @@ func (e *Erasure) Destroy(simOption *SimOptions) {
 				//algorithms have flaws. For every stripe, we corrupt failNum blocks
 				stripeNum := len(fd.blockInfos)
 				stripeFail := int(stripeFailProportion * float32(stripeNum))
-				for i := range genRandomArr(stripeNum, 0)[:stripeFail] {
+				for i := range genRandArrInt(stripeNum, 0)[:stripeFail] {
 
-					for j := range genRandomArr(e.K+e.M, 0)[:simOption.FailNum] {
+					for j := range genRandArrInt(e.K+e.M, 0)[:simOption.FailNum] {
 						fd.blockInfos[i][j].bstat = blkFail
 					}
 				}
@@ -88,10 +88,10 @@ func (e *Erasure) Destroy(simOption *SimOptions) {
 			//algorithms have flaws. For every stripe, we corrupt simOption.FailNum blocks
 			stripeNum := len(fi.blockInfos)
 			stripeFail := int(stripeFailProportion * float32(stripeNum))
-			strps := genRandomArr(stripeNum, 0)[:stripeFail]
+			strps := genRandArrInt(stripeNum, 0)[:stripeFail]
 			for _, i := range strps {
 
-				blks := genRandomArr(e.K+e.M, 0)[:simOption.FailNum]
+				blks := genRandArrInt(e.K+e.M, 0)[:simOption.FailNum]
 				for _, j := range blks {
 					// fmt.Printf("i:%d, j :%d fails.\n", i, j)
 					fi.blockInfos[i][j].bstat = blkFail

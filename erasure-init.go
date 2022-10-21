@@ -257,7 +257,7 @@ func (e *Erasure) ReadConfig() error {
 // Replicate the config file into the system for k-fold
 // it's NOT striped and encoded as a whole piece.
 func (e *Erasure) replicateConfig(k int) error {
-	selectDisk := genRandomArr(e.DiskNum, 0)[:k]
+	selectDisk := genRandArrInt(e.DiskNum, 0)[:k]
 	for _, i := range selectDisk {
 		disk := e.diskInfos[i]
 		disk.ifMetaExist = true

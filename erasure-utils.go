@@ -185,14 +185,24 @@ func sumFloat64(args ...float64) float64 {
 	return ret
 }
 
-// each stripe randomized distribution
-func genRandomArr(n, start int) []int {
+// genRandArrInt generate a random integer array ranging in [start, strat+n)
+func genRandArrInt(n, start int) []int {
 	shuff := make([]int, n)
 	for i := 0; i < n; i++ {
 		shuff[i] = i + start
 	}
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(shuff), func(i, j int) { shuff[i], shuff[j] = shuff[j], shuff[i] })
+	return shuff
+}
+
+// genRandArrInt generates a random float64 array ranging in [base, base+max)
+func genRandArrFloat64(n int, max int, base float64) []float64 {
+	shuff := make([]float64, n)
+	rand.Seed(1314520)
+	for i := 0; i < n; i++ {
+		shuff[i] = float64(max)*rand.Float64() + base
+	}
 	return shuff
 }
 

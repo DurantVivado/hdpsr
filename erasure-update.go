@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-//update a file according to a new file, the local `filename` will be used to update the file in the cloud with the same name
+// update a file according to a new file, the local `filename` will be used to update the file in the cloud with the same name
 func (e *Erasure) Update(oldFile, newFile string) error {
 	// read old file info
 	baseName := filepath.Base(oldFile)
@@ -310,7 +310,7 @@ func adjustDist(e *Erasure, fi *fileInfo, oldStripeNum, newStripeNum int) {
 			}
 		}
 		for i := oldStripeNum; i < newStripeNum; i++ {
-			fi.Distribution[i] = genRandomArr(e.DiskNum, 0)[0 : e.K+e.M]
+			fi.Distribution[i] = genRandArrInt(e.DiskNum, 0)[0 : e.K+e.M]
 			for j := 0; j < e.K+e.M; j++ {
 				diskID := fi.Distribution[i][j]
 				fi.blockToOffset[i][j] = countSum[diskID]
