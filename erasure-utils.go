@@ -98,7 +98,7 @@ func consultUserBeforeAction() (bool, error) {
 
 }
 
-//an instant error dealer
+//an instant error handler
 
 // look if path exists
 func pathExist(path string) (bool, error) {
@@ -488,8 +488,10 @@ func sort2DArray(data [][]float64) {
 	}
 }
 
-// getDiskBandwidth reads a fix-sized chunk and get the disk bandwidth
-func (e *Erasure) getDiskBandwidth(ifs []*os.File) {
+// getDiskBWRead reads a fix-sized chunk and get the disk bandwidth
+const CHUNKSIZE = 50 * KiB
+
+func (e *Erasure) getDiskBWRead(ifs []*os.File) error {
 	erg := new(errgroup.Group)
 	for i, disk := range e.diskInfos[0:e.DiskNum] {
 		i := i
@@ -498,21 +500,19 @@ func (e *Erasure) getDiskBandwidth(ifs []*os.File) {
 			if !disk.available {
 				return nil
 			}
-			buf := make([]byte, 50*KiB)
+			buf := make([]byte, CHUNKSIZE)
 			start := time.Now()
 			_, err = ifs[i].Read(buf)
 			if err != nil && err != io.EOF {
 				return err
 			}
 			disk.bandwidth =
-				float64(50) / (1024 * time.Since(start).Seconds())
+				float64(CHUNKSIZE/KiB) / time.Since(start).Seconds()
 			return nil
 		})
 	}
 	if err := erg.Wait(); err != nil {
-		if !e.Quiet {
-			log.Printf("read failed %s", err.Error())
-		}
+		return err
 	}
 	if !e.Quiet {
 		for _, disk := range e.diskInfos[0:e.DiskNum] {
@@ -520,8 +520,36 @@ func (e *Erasure) getDiskBandwidth(ifs []*os.File) {
 				disk.diskPath, disk.bandwidth)
 		}
 	}
+	return nil
 }
 
-// get disk bandwidth using fio
-func (e *Erasure) fioGetDiskBW() {
+// fioGetDiskBW proactively measures disk bandwidth using `fio`
+func FIO(dev string, bs string, rw string, ioengine string, iodepth int, runtime int) (
+	[]byte, error) {
+	name := fmt.Sprintf("Job-%s-%s-%s", dev, bs, rw)
+	cmd := fmt.Sprintf("fio -filename=%s -bs=%s -direct=1 -thread -rw=%s -name=%s -ioengine=%s -iodepth=%d -runtime=%d",
+		dev, bs, rw, name, ioengine, iodepth, runtime)
+	return execShell(cmd)
+}
+
+// we use the average bw as the
+func grepBWRead(blocksize string, dev string) (float64, error) {
+	name := fmt.Sprintf("Job-%s-%s-%s", dev, blocksize, "read")
+	subcmd := "| grep BW | awk -F ' ' '{print $(NF-1)}' | cut -c 4-7"
+	cmd := fmt.Sprintf("fio -filename=%s -bs=%s -direct=1 -thread -rw=%s -name=%s -ioengine=%s -iodepth=%d -runtime=%d %s",
+		dev, blocksize, "read", name, "libaio", 16, 15, subcmd)
+	result, err := execShell(cmd)
+	if err != nil {
+		return 0, err
+	}
+	res := strings.Split(string(result), "\n")[0]
+	ret, _ := strconv.ParseFloat(string(res), 64)
+	return ret, nil
+}
+
+func (e *Erasure) getDiskBWFIO() error {
+	log.Println("warning: the measured device path must be block device, e.g., /dev/sda")
+	for _, disk := range e.diskInfos {
+	}
+	return nil
 }

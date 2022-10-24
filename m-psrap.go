@@ -123,7 +123,10 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 			}
 		}
 	}()
-	e.getDiskBandwidth(ifs)
+	err = e.getDiskBWRead(ifs)
+	if err != nil {
+		return nil, err
+	}
 	intraStripe := e.getIntraStripeOptimal(slowLatency)
 	// t := time.Since(start).Seconds()
 	// fmt.Println("mpsrap algorithm running time: ", t)

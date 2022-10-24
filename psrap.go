@@ -212,7 +212,10 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 
 	start := time.Now()
 	// measure the bandwidth of each disk
-	e.getDiskBandwidth(ifs)
+	err = e.getDiskBWRead(ifs)
+	if err != nil {
+		return nil, err
+	}
 	intraStripe := e.getIntraStripeOptimal(slowLatency)
 	t := time.Since(start).Seconds()
 	// fmt.Println("psrap algorithm running time: ", t)

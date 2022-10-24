@@ -39,16 +39,16 @@ type diskInfo struct {
 	//it's a disk with meta file?
 	ifMetaExist bool
 
-	//the capacity of a disk
+	//the capacity of a disk (in Bytes)
 	capacity int64
 
 	//the partition of a disk
 	partition string
 
-	// the latency of a disk
+	// the latency of a disk (in seconds)
 	latency float64
 
-	// bandwidth of a disk
+	// bandwidth of a disk (in B/s)
 	bandwidth float64
 
 	// if this disk is slow
