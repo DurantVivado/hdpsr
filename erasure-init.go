@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/YuchongHu/reedsolomon"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +23,8 @@ import (
 func (e *Erasure) ReadDiskPath() error {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	f, err := os.Open(e.DiskFilePath)
+	// read disks mounted path
+	f, err := os.Open(e.DiskMountPath)
 	if err != nil {
 		return err
 	}
@@ -50,8 +53,57 @@ func (e *Erasure) ReadDiskPath() error {
 		} else if err != nil {
 			return err
 		}
-		diskInfo := &diskInfo{diskId: id, diskPath: string(line), available: true, ifMetaExist: flag, slow: false, busy: false}
+		diskInfo := &diskInfo{diskId: id, mntPath: string(line), available: true, ifMetaExist: flag, slow: false, busy: false}
 		e.diskInfos = append(e.diskInfos, diskInfo)
+		id++
+	}
+	//read disk bandwidth path
+	if !e.ReadBWfromFile {
+		return nil
+	}
+	ff, err := os.Open(e.DiskBWPath)
+	if err != nil {
+		return err
+	}
+	defer ff.Close()
+	buf = bufio.NewReader(ff)
+	id = 0
+	for {
+		line, _, err := buf.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		BWs := strings.Split(string(line), " ")
+		if len(BWs) < 1 {
+			return errInvalidDiskBWFormat
+		}
+		parsedBW, err := strconv.ParseFloat(BWs[0], 64)
+		if err != nil {
+			return errInvalidDiskBWFormat
+		}
+		e.diskInfos[id].read_bw = parsedBW
+		if len(BWs) > 1 {
+			parsedBW, err = strconv.ParseFloat(BWs[1], 64)
+			if err != nil {
+				return errInvalidDiskBWFormat
+			}
+			e.diskInfos[id].write_bw = parsedBW
+		} else if len(BWs) > 2 {
+			parsedBW, err = strconv.ParseFloat(BWs[2], 64)
+			if err != nil {
+				return errInvalidDiskBWFormat
+			}
+			e.diskInfos[id].randread_bw = parsedBW
+		} else if len(BWs) > 3 {
+			parsedBW, err = strconv.ParseFloat(BWs[3], 64)
+			if err != nil {
+				return errInvalidDiskBWFormat
+			}
+			e.diskInfos[id].randwrite_bw = parsedBW
+		}
 		id++
 	}
 	return nil
@@ -112,7 +164,7 @@ func (e *Erasure) reset() error {
 
 	for _, path := range e.diskInfos {
 		path := path
-		files, err := os.ReadDir(path.diskPath)
+		files, err := os.ReadDir(path.mntPath)
 		if err != nil {
 			return err
 		}
@@ -121,7 +173,7 @@ func (e *Erasure) reset() error {
 		}
 		g.Go(func() error {
 			for _, file := range files {
-				err = os.RemoveAll(filepath.Join(path.diskPath, file.Name()))
+				err = os.RemoveAll(filepath.Join(path.mntPath, file.Name()))
 				if err != nil {
 					return err
 				}
@@ -153,7 +205,7 @@ func (e *Erasure) resetSystem() error {
 	if err != nil {
 		return err
 	}
-	//delete the data blocks under all diskPath
+	//delete the data blocks under all mntPath
 	err = e.reset()
 	if err != nil {
 		return err
@@ -261,7 +313,7 @@ func (e *Erasure) replicateConfig(k int) error {
 	for _, i := range selectDisk {
 		disk := e.diskInfos[i]
 		disk.ifMetaExist = true
-		replicaPath := filepath.Join(disk.diskPath, "META")
+		replicaPath := filepath.Join(disk.mntPath, "META")
 		_, err = copyFile(e.ConfigFile, replicaPath)
 		if err != nil {
 			log.Println(err.Error())
@@ -316,7 +368,7 @@ func (e *Erasure) rebuildConfig() error {
 	//we read file meta in the disk path and try to rebuild the config file
 	for i := range e.diskInfos[:e.DiskNum] {
 		disk := e.diskInfos[i]
-		replicaPath := filepath.Join(disk.diskPath, "META")
+		replicaPath := filepath.Join(disk.mntPath, "META")
 		if ok, err := pathExist(replicaPath); !ok && err == nil {
 			continue
 		}
@@ -338,7 +390,7 @@ func (e *Erasure) updateConfigReplica() error {
 	}
 	for i := range e.diskInfos[:e.DiskNum] {
 		disk := e.diskInfos[i]
-		replicaPath := filepath.Join(disk.diskPath, "META")
+		replicaPath := filepath.Join(disk.mntPath, "META")
 		if ok, err := pathExist(replicaPath); !ok && err == nil {
 			continue
 		}
@@ -363,7 +415,7 @@ func (e *Erasure) RemoveFile(filename string) error {
 
 	for _, path := range e.diskInfos[:e.DiskNum] {
 		path := path
-		files, err := os.ReadDir(path.diskPath)
+		files, err := os.ReadDir(path.mntPath)
 		if err != nil {
 			return err
 		}
@@ -372,7 +424,7 @@ func (e *Erasure) RemoveFile(filename string) error {
 		}
 		g.Go(func() error {
 
-			err = os.RemoveAll(filepath.Join(path.diskPath, baseFilename))
+			err = os.RemoveAll(filepath.Join(path.mntPath, baseFilename))
 			if err != nil {
 				return err
 			}
@@ -399,7 +451,7 @@ func (e *Erasure) checkIfFileExist(filename string) (bool, error) {
 
 	for _, path := range e.diskInfos[:e.DiskNum] {
 		path := path
-		files, err := os.ReadDir(path.diskPath)
+		files, err := os.ReadDir(path.mntPath)
 		if err != nil {
 			return false, err
 		}
@@ -408,7 +460,7 @@ func (e *Erasure) checkIfFileExist(filename string) (bool, error) {
 		}
 		g.Go(func() error {
 
-			subpath := filepath.Join(path.diskPath, baseFilename)
+			subpath := filepath.Join(path.mntPath, baseFilename)
 			if ok, err := pathExist(subpath); !ok && err == nil {
 				return errFileBlobNotFound
 			} else if err != nil {
@@ -456,13 +508,13 @@ func (e *Erasure) ReadDiskPartition() error {
 	for i := range e.diskInfos {
 		i := i
 		erg.Go(func() error {
-			// firstly, execute "df -h diskPath" to get partition
-			command := `df -h ` + e.diskInfos[i].diskPath
+			// firstly, execute "df -h mntPath" to get partition
+			command := `df -h ` + e.diskInfos[i].mntPath
 			partInfo, err := execShell(command)
 			if err != nil {
 				return err
 			}
-			partName, err := parsePartition(string(partInfo))
+			partName, err := parsePartition(partInfo)
 			if err != nil {
 				return err
 			}
@@ -487,7 +539,7 @@ func (e *Erasure) ReadDiskLatency() error {
 			if err != nil {
 				return err
 			}
-			await, svctm, err := parseIoStat(string(ioInfo))
+			await, svctm, err := parseIoStat(ioInfo)
 			if err != nil {
 				return err
 			}
@@ -505,7 +557,7 @@ func (e *Erasure) PrintDiskInfo() {
 	fmt.Println("------------disk info-------------")
 	for _, disk := range e.diskInfos {
 		fmt.Printf("disk id: %d\n", disk.diskId)
-		fmt.Printf("disk path: %s\n", disk.diskPath)
+		fmt.Printf("disk path: %s\n", disk.mntPath)
 		fmt.Printf("disk partition path: %s\n", disk.partition)
 		fmt.Printf("disk latency: %f\n\n", disk.latency)
 	}

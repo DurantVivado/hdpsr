@@ -6,12 +6,12 @@ import (
 )
 
 type diskError struct {
-	diskPath string
-	cause    string
+	mntPath string
+	cause   string
 }
 
 func (e *diskError) Error() string {
-	return fmt.Sprintf("disk %s is not available for :%s", e.diskPath, e.cause)
+	return fmt.Sprintf("disk %s is not available for :%s", e.mntPath, e.cause)
 }
 
 //Error definitions
@@ -47,6 +47,8 @@ var errTooFewBlockAliveInStripe = errors.New("not enough blocks for reading in a
 var errPartInfoNotFound = errors.New("partition info not found")
 
 var errIoStatNotFound = errors.New("io status await or svctm not found")
+
+var errInvalidDiskBWFormat = errors.New("the disk bandwidth format should be number without unit, e.g., 233MiB/s")
 
 // errUnexpected - unexpected error, requires manual intervention.
 var errUnexpected = storageErr("unexpected error, please report this issue at https://github.com/minio/minio/issues")

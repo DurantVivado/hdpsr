@@ -110,9 +110,9 @@ func TestEncodeDecodeNormal(t *testing.T) {
 	//after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -192,9 +192,9 @@ func TestEncodeDecodeOneFailure(t *testing.T) {
 	//after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -277,8 +277,8 @@ func TestEncodeDecodeTwoFailure(t *testing.T) {
 	//after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -358,9 +358,9 @@ func TestEncodeDecodeBitRot(t *testing.T) {
 	//after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -443,9 +443,9 @@ func TestEncodeDecodeOneFailureDegraded(t *testing.T) {
 	//after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -528,9 +528,9 @@ func TestEncodeDecodeTwoFailureDegraded(t *testing.T) {
 	//after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -609,8 +609,8 @@ func TestEncodeDecodeTwoFailureDegraded(t *testing.T) {
 func TestRemove(t *testing.T) {
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -685,9 +685,9 @@ func benchmarkEncodeDecode(b *testing.B, dataShards, parityShards, diskNum int, 
 	b.SetBytes(fileSize)
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -749,9 +749,9 @@ func benchmarkEncodeDecodeWithFault(b *testing.B, dataShards, parityShards, disk
 	b.SetBytes(fileSize)
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -923,9 +923,9 @@ func BenchmarkEncodeDecode20x4x24x4096x20Mx4faultxdegrade(b *testing.B) {
 func benchmarkParallel(b *testing.B, dataShards, parityShards, diskNum int, blockSize, fileSize int64, conNum int, degrade bool) {
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -1076,9 +1076,9 @@ func benchmarkEncodeDecodeConstripe(b *testing.B, conStripe, dataShards, parityS
 	b.SetBytes(fileSize)
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      conStripe,
 		Override:        true,

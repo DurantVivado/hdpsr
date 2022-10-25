@@ -5,7 +5,11 @@ package hdpsr
 
 import "path/filepath"
 
-var testDiskFilePath = filepath.Join("examples", ".hdr.disks.path")
+var (
+	testDiskMountPath = filepath.Join("test", ".hdr.disks.path")
+	testConfigFile    = filepath.Join("test", ".test.conf.json")
+	testDiskBWPath    = filepath.Join("test", ".test.diskBW")
+)
 
 //randomly generate file of different size and encode them into HDR system
 

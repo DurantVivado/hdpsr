@@ -40,8 +40,8 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 	j := e.DiskNum
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {
-			ReplaceMap[e.diskInfos[i].diskPath] =
-				e.diskInfos[j].diskPath
+			ReplaceMap[e.diskInfos[i].mntPath] =
+				e.diskInfos[j].mntPath
 			replaceMap[i] = j
 			diskFailList[i] = true
 			j++
@@ -56,7 +56,7 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.diskPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
 				ifs[i] = nil
@@ -94,7 +94,7 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 		i := i
 		disk := e.diskInfos[e.DiskNum+i]
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.diskPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if e.Override {
 				if err := os.RemoveAll(folderPath); err != nil {
@@ -257,7 +257,7 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 								return err
 							}
 							if e.diskInfos[diskId].ifMetaExist {
-								newMetapath := filepath.Join(e.diskInfos[restoreId].diskPath, "META")
+								newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
 								if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
 									return err
 								}

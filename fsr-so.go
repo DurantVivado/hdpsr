@@ -176,7 +176,7 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	ReplaceMap := make(map[string]string)
 	diskFailList := make(map[int]bool, 1)
 
-	ReplaceMap[e.diskInfos[failDisk].diskPath] = e.diskInfos[e.DiskNum].diskPath
+	ReplaceMap[e.diskInfos[failDisk].mntPath] = e.diskInfos[e.DiskNum].mntPath
 	replaceMap[failDisk] = e.DiskNum
 	diskFailList[failDisk] = true
 
@@ -190,7 +190,7 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.diskPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
 				ifs[i] = nil
@@ -224,7 +224,7 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 
 	// create BLOB in the backup disk
 	disk := e.diskInfos[e.DiskNum]
-	folderPath := filepath.Join(disk.diskPath, baseName)
+	folderPath := filepath.Join(disk.mntPath, baseName)
 	blobPath := filepath.Join(folderPath, "BLOB")
 	if e.Override {
 		if err := os.RemoveAll(folderPath); err != nil {
@@ -257,45 +257,44 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	nextStripe := 0
 	stripes := e.StripeInDisk[failDisk]
 
-	// stripeOrder
-	err = e.getDiskBWRead(ifs)
-	if err != nil {
-		return nil, err
+	stripeRepairTime := e.getStripeRepairtime(slowLatency)
+	stripeOrder, minTime := e.getMinimalTimeGreedy(stripeRepairTime)
+	if !e.Quiet {
+		log.Printf("minTime: %.3f s\n", minTime)
 	}
-	// stripeRepairTime := e.getStripeRepairtime(slowLatency)
-	// stripeOrder, minTime := e.getMinimalTimeGreedy(stripeRepairTime)
-	for blob := 0; blob < numBlob; blob++ {
-		if stripeCnt+e.ConStripes > stripeNum {
-			nextStripe = stripeNum - stripeCnt
-		} else {
-			nextStripe = e.ConStripes
-		}
+	concurrency := len(stripeOrder)
+	dist := fi.distribution
+	for t := 1; t <= concurrency; t++ {
 		eg := e.errgroupPool.Get().(*errgroup.Group)
-		for s := 0; s < nextStripe; s++ {
+		strps := stripeOrder[t]
+		blobBuf := makeArr2DByte(len(strps), int(e.allStripeSize))
+		for s, stripeNo := range strps {
+			stripeNo := stripeNo
 			s := s
-			stripeNo := stripeCnt + s
 			eg.Go(func() error {
-				// s := s
-				spId := stripes[stripeNo]
-				spInfo := e.Stripes[spId]
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
-				// get dist and blockToOffset by stripeNo
-				dist := spInfo.Dist
-				blockToOffset := spInfo.BlockToOffset
-				// fmt.Println(spId, dist, blockToOffset)
-				// read blocks in parallel
+				//read all blocks in parallel
+				//We only have to read k blocks to rec
+				failList := make(map[int]bool)
 				for i := 0; i < e.K+e.M; i++ {
 					i := i
-					diskId := dist[i]
+					dist
+					diskId := dist[stripeNo][i]
 					disk := e.diskInfos[diskId]
-					if !disk.available {
+					blkStat := fi.blockInfos[stripeNo][i]
+					if !disk.available || blkStat.bstat != blkOK {
+						failList[diskId] = true
 						continue
 					}
 					erg.Go(func() error {
-						offset := blockToOffset[i]
-						_, err := ifs[diskId].ReadAt(blobBuf[s][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
+
+						//we also need to know the block's accurate offset with respect to disk
+						offset := fi.blockToOffset[stripeNo][i]
+						_, err := ifs[diskId].ReadAt(
+							blobBuf[s][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
 							int64(offset)*e.BlockSize)
+						// fmt.Println("Read ", n, " bytes at", i, ", block ", block)
 						if err != nil && err != io.EOF {
 							return err
 						}
@@ -310,35 +309,46 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 				if err != nil {
 					return err
 				}
-				ok, err := e.enc.Verify(splitData)
+				// fmt.Printf("stripeNo:%d, %v\n", stripeNo, fi.loadBalancedScheme[stripeNo])
+				err = e.enc.ReconstructWithKBlocks(splitData,
+					&failList,
+					&fi.loadBalancedScheme[stripeNo],
+					&(fi.Distribution[stripeNo]),
+					options.Degrade)
 				if err != nil {
 					return err
 				}
-				if !ok {
-					err = e.enc.ReconstructWithList(splitData, &diskFailList, &(dist), options.Degrade)
-					if err != nil {
-						return err
-					}
-				}
 				//write the Blob to restore paths
+				egp := e.errgroupPool.Get().(*errgroup.Group)
+				defer e.errgroupPool.Put(egp)
 				for i := 0; i < e.K+e.M; i++ {
 					i := i
-					diskId := dist[i]
-					if diskId == failDisk {
-						writeOffset := blockToOffset[i]
-						_, err := rfs.WriteAt(splitData[i], int64(writeOffset)*e.BlockSize)
-						if err != nil {
-							return err
-						}
-						if e.diskInfos[diskId].ifMetaExist {
-							newMetapath := filepath.Join(e.diskInfos[e.DiskNum].diskPath, "META")
-							if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+					diskId := dist[stripeNo][i]
+					if v, ok := replaceMap[diskId]; ok {
+						restoreId := v - e.DiskNum
+						writeOffset := fi.blockToOffset[stripeNo][i]
+						egp.Go(func() error {
+							_, err := rfs[restoreId].WriteAt(splitData[i],
+								int64(writeOffset)*e.BlockSize)
+							if err != nil {
 								return err
 							}
-						}
-						break
+							if e.diskInfos[diskId].ifMetaExist {
+								newMetapath := filepath.Join(e.diskInfos[restoreId].diskPath, "META")
+								if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+									return err
+								}
+							}
+							return nil
+
+						})
+
 					}
 				}
+				if err := egp.Wait(); err != nil {
+					return err
+				}
+
 				return nil
 			})
 		}
@@ -346,17 +356,8 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 			return nil, err
 		}
 		e.errgroupPool.Put(eg)
-		stripeCnt += nextStripe
 	}
 
-	// fmt.Println("second phase costs: ", time.Since(start2).Seconds())
-
-	// start3 := time.Now()
-	//err = e.updateDiskPath(replaceMap)
-	// fmt.Println("third phase costs: ", time.Since(start3).Seconds())
-	// if err != nil {
-	// 	return nil, err
-	// }
 	if !e.Quiet {
 		log.Println("Finish recovering")
 	}
@@ -378,9 +379,9 @@ func (e *Erasure) getStripeRepairtime(slowLatency int) []float64 {
 				continue
 			}
 			if e.diskInfos[diskId].slow {
-				blkTime = float64(e.BlockSize)/e.diskInfos[j].bandwidth + float64(slowLatency)
+				blkTime = float64(e.BlockSize)/e.diskInfos[j].read_bw + float64(slowLatency)
 			} else {
-				blkTime = float64(e.BlockSize) / e.diskInfos[j].bandwidth
+				blkTime = float64(e.BlockSize) / e.diskInfos[j].read_bw
 			}
 			maxTime = maxFloat64(maxTime, blkTime)
 		}

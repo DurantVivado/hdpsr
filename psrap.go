@@ -101,9 +101,9 @@ func (e *Erasure) getData(slowLatency int) [][]float64 {
 				continue
 			}
 			if e.diskInfos[diskId].slow {
-				data[i][j] = float64(e.BlockSize)/e.diskInfos[j].bandwidth + float64(slowLatency)
+				data[i][j] = float64(e.BlockSize)/e.diskInfos[j].read_bw + float64(slowLatency)
 			} else {
-				data[i][j] = float64(e.BlockSize) / e.diskInfos[j].bandwidth
+				data[i][j] = float64(e.BlockSize) / e.diskInfos[j].read_bw
 			}
 		}
 	}
@@ -148,7 +148,7 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 	replaceMap := make(map[int]int)
 	ReplaceMap := make(map[string]string)
 
-	ReplaceMap[e.diskInfos[failDisk].diskPath] = e.diskInfos[e.DiskNum].diskPath
+	ReplaceMap[e.diskInfos[failDisk].mntPath] = e.diskInfos[e.DiskNum].mntPath
 	replaceMap[failDisk] = e.DiskNum
 
 	// open all disks
@@ -159,7 +159,7 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.diskPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
 				ifs[i] = nil
@@ -193,8 +193,8 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 
 	// create BLOB in the backup disk
 	disk := e.diskInfos[e.DiskNum]
-	// fmt.Println(disk.diskPath)
-	folderPath := filepath.Join(disk.diskPath, baseName)
+	// fmt.Println(disk.mntPath)
+	folderPath := filepath.Join(disk.mntPath, baseName)
 	blobPath := filepath.Join(folderPath, "BLOB")
 	if e.Override {
 		if err := os.RemoveAll(folderPath); err != nil {
@@ -350,7 +350,7 @@ func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency i
 							return err
 						}
 						if e.diskInfos[diskId].ifMetaExist {
-							newMetapath := filepath.Join(e.diskInfos[e.DiskNum].diskPath, "META")
+							newMetapath := filepath.Join(e.diskInfos[e.DiskNum].mntPath, "META")
 							if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
 								return err
 							}

@@ -20,10 +20,17 @@ var failOnErr = func(mode string, e error) {
 	}
 }
 
-//if you want to enable cpu,memory or block profile functionality
-//set profileEnable as true, otherwise false
-//it's strongly advised to close this in production
+// if you want to enable cpu,memory or block profile functionality
+// set profileEnable as true, otherwise false
+// it's strongly advised to close this in production
 const profileEnable = false
+
+// default file paths (in the same directory as `main.go`)
+const (
+	defaultDiskBWPath    = "DiskBW"
+	defaultConfigFile    = "conf.json"
+	defaultDiskMountPath = ".hdr.disks.path"
+)
 
 var err error
 
@@ -41,8 +48,9 @@ func main() {
 		defer profile.Start(profile.MemProfile, profile.MemProfileRate(1)).Stop()
 	}
 	erasure := &hdpsr.Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    ".hdr.disks.path",
+		ConfigFile:      defaultConfigFile,
+		DiskMountPath:   defaultDiskMountPath,
+		DiskBWPath:      defaultDiskBWPath,
 		DiskNum:         diskNum,
 		K:               k,
 		M:               m,
@@ -53,6 +61,7 @@ func main() {
 		Quiet:           quiet,
 		ReplicateFactor: replicateFactor,
 		SlowNum:         slowNum,
+		ReadBWfromFile:  readBWfromFile,
 	}
 	//We read the config file
 	// ctx, _ := context.WithCancel(context.Background())
@@ -283,12 +292,13 @@ var (
 	memSize         int
 	intraStripe     int
 	ifLog           bool
+	readBWfromFile  bool
 	slowLatency     int
 	slowNum         int
 	// recoveredDiskPath string
 )
 
-//the parameter lists, with fullname or abbreviation
+// the parameter lists, with fullname or abbreviation
 func flag_init() {
 
 	flag.StringVar(&mode, "md", "encode", "the mode of ec system, one of (encode, decode, update, scaling, recover)")
@@ -368,5 +378,7 @@ func flag_init() {
 
 	flag.BoolVar(&degrade, "dg", false, "whether degraded read is enabled. In this way, only data shards are recovered.")
 	flag.BoolVar(&degrade, "degrade", false, "whether degraded read is enabled. In this way, only data shards are recovered.")
+
+	flag.BoolVar(&readBWfromFile, "readbw", false, "whether to read disk BANDWIDTH from file.")
 
 }

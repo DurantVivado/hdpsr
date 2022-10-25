@@ -50,7 +50,7 @@ func (e *Erasure) Destroy(simOption *SimOptions) {
 		for i := 0; i < simOption.FailNum; i++ {
 
 			if !e.Quiet {
-				log.Println(e.diskInfos[shuff[i]].diskPath)
+				log.Println(e.diskInfos[shuff[i]].mntPath)
 			}
 			e.diskInfos[shuff[i]].available = false
 		}

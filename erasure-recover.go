@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-//get the number of files
+// get the number of files
 func (e *Erasure) getFileNum() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -22,10 +22,10 @@ func (e *Erasure) getFileNum() int {
 
 }
 
-//RecoverReadFull mainly deals with a disk-level disaster reconstruction.
-//User should provide enough backup devices in `.hdr.disk.path` for data transferring.
+// RecoverReadFull mainly deals with a disk-level disaster reconstruction.
+// User should provide enough backup devices in `.hdr.disk.path` for data transferring.
 //
-//An (oldPath -> replacedPath) replace map is returned in the first placeholder.
+// An (oldPath -> replacedPath) replace map is returned in the first placeholder.
 func (e *Erasure) Recover(options *Options) (map[string]string, error) {
 	totalFiles := e.getFileNum()
 	if !e.Quiet {
@@ -60,7 +60,7 @@ func (e *Erasure) Recover(options *Options) (map[string]string, error) {
 	// think what if backup also breaks down, future stuff
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {
-			ReplaceMap[e.diskInfos[i].diskPath] = e.diskInfos[j].diskPath
+			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
 			replaceMap[i] = j
 			diskFailList[i] = true
 			j++
@@ -96,7 +96,7 @@ func (e *Erasure) Recover(options *Options) (map[string]string, error) {
 				i := i
 				disk := disk
 				erg.Go(func() error {
-					folderPath := filepath.Join(disk.diskPath, basefilename)
+					folderPath := filepath.Join(disk.mntPath, basefilename)
 					blobPath := filepath.Join(folderPath, "BLOB")
 					if !disk.available {
 						ifs[i] = nil
@@ -125,7 +125,7 @@ func (e *Erasure) Recover(options *Options) (map[string]string, error) {
 				i := i
 				disk := disk
 				erg.Go(func() error {
-					folderPath := filepath.Join(disk.diskPath, basefilename)
+					folderPath := filepath.Join(disk.mntPath, basefilename)
 					blobPath := filepath.Join(folderPath, "BLOB")
 					if e.Override {
 						if err := os.RemoveAll(folderPath); err != nil {
@@ -235,7 +235,7 @@ func (e *Erasure) Recover(options *Options) (map[string]string, error) {
 										return err
 									}
 									if e.diskInfos[diskId].ifMetaExist {
-										newMetapath := filepath.Join(e.diskInfos[restoreId].diskPath, "META")
+										newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
 										if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
 											return err
 										}
@@ -281,16 +281,16 @@ func (e *Erasure) Recover(options *Options) (map[string]string, error) {
 	return ReplaceMap, nil
 }
 
-//Update the diskpath. Reserve the current diskPathFile and write new one.
+// Update the diskpath. Reserve the current mntPathFile and write new one.
 func (e *Erasure) updateDiskPath(replaceMap map[int]int) error {
 	// the last step: after recovering the files, we update `.hdr.disks.path`
 	// and write a copy
 	//1. rename the file
-	err := os.Rename(e.DiskFilePath, e.DiskFilePath+".old")
+	err := os.Rename(e.DiskMountPath, e.DiskMountPath+".old")
 	if err != nil {
 		return err
 	}
-	//2. update e.DiskFilePath
+	//2. update e.DiskMountPath
 	for k, v := range replaceMap {
 		e.diskInfos[k] = e.diskInfos[v]
 	}
@@ -299,13 +299,13 @@ func (e *Erasure) updateDiskPath(replaceMap map[int]int) error {
 	e.diskInfos = e.diskInfos[:e.DiskNum+
 		copy(e.diskInfos[e.DiskNum:], e.diskInfos[e.DiskNum+fn:])]
 	//3.write to new file
-	f, err := os.OpenFile(e.DiskFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+	f, err := os.OpenFile(e.DiskMountPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
 	for _, di := range e.diskInfos {
-		_, err = f.WriteString(di.diskPath + "\n")
+		_, err = f.WriteString(di.mntPath + "\n")
 		if err != nil {
 			return err
 		}

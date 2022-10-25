@@ -11,10 +11,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-//ReadFile reads ONE file  on the system and save it to local `savePath`.
+// ReadFile reads ONE file  on the system and save it to local `savePath`.
 //
-//In case of any failure within fault tolerance, the file will be decoded first.
-//`degrade` indicates whether degraded read is enabled.
+// In case of any failure within fault tolerance, the file will be decoded first.
+// `degrade` indicates whether degraded read is enabled.
 func (e *Erasure) ReadFile(filename string, savepath string, options *Options) error {
 	baseFileName := filepath.Base(filename)
 	intFi, ok := e.fileMap.Load(baseFileName)
@@ -36,10 +36,10 @@ func (e *Erasure) ReadFile(filename string, savepath string, options *Options) e
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.diskPath, baseFileName)
+			folderPath := filepath.Join(disk.mntPath, baseFileName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
-				return &diskError{disk.diskPath, " available flag set false"}
+				return &diskError{disk.mntPath, " available flag set false"}
 			}
 			ifs[i], err = os.Open(blobPath)
 			if err != nil {

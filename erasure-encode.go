@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-//EncodeFile takes filepath as input and encodes the file into data and parity blocks concurrently.
+// EncodeFile takes filepath as input and encodes the file into data and parity blocks concurrently.
 //
 // It returns `*fileInfo` and an error. Specify `blocksize` and `conStripe` for better performance.
 func (e *Erasure) EncodeFile(filename string) (*fileInfo, error) {
@@ -58,7 +58,7 @@ func (e *Erasure) EncodeFile(filename string) (*fileInfo, error) {
 		i := i
 		//we have to make sure the dist is appended to fi.Distribution in order
 		erg.Go(func() error {
-			folderPath := filepath.Join(e.diskInfos[i].diskPath, baseFileName)
+			folderPath := filepath.Join(e.diskInfos[i].mntPath, baseFileName)
 			//if override is specified, we override previous data
 			if e.Override {
 				if err := os.RemoveAll(folderPath); err != nil {
@@ -190,7 +190,7 @@ func (e *Erasure) EncodeFile(filename string) (*fileInfo, error) {
 	return fi, nil
 }
 
-//split and encode data
+// split and encode data
 func (e *Erasure) encodeData(data []byte) ([][]byte, error) {
 	if len(data) == 0 {
 		return make([][]byte, e.K+e.M), nil
@@ -205,9 +205,9 @@ func (e *Erasure) encodeData(data []byte) ([][]byte, error) {
 	return encoded, nil
 }
 
-//return final erasure size from original size,
-//Every block spans all the data disks and split into shards
-//the shardSize is the same except for the last one
+// return final erasure size from original size,
+// Every block spans all the data disks and split into shards
+// the shardSize is the same except for the last one
 func (e *Erasure) stripedFileSize(totalLen int64) int64 {
 	if totalLen <= 0 {
 		return 0

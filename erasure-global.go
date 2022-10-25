@@ -28,7 +28,7 @@ type diskInfo struct {
 	diskId int64
 
 	//the disk path
-	diskPath string
+	mntPath string
 
 	//it's flag and when disk fails, it renders false.
 	available bool
@@ -48,8 +48,17 @@ type diskInfo struct {
 	// the latency of a disk (in seconds)
 	latency float64
 
-	// bandwidth of a disk (in B/s)
-	bandwidth float64
+	// read bandwidth of a disk (in B/s)
+	read_bw float64
+
+	// write bandwidth of a disk (in B/s)
+	write_bw float64
+
+	// randread bandwidth of a disk (in B/s)
+	randread_bw float64
+
+	// randwrite bandwidth of a disk (in B/s)
+	randwrite_bw float64
 
 	// if this disk is slow
 	slow bool
@@ -70,7 +79,7 @@ type Erasure struct {
 	// the block size. default to 4KiB
 	BlockSize int64 `json:"blockSize"`
 
-	// the disk number, only the first diskNum disks are used in diskPathFile
+	// the disk number, only the first diskNum disks are used in mntPathFile
 	DiskNum int `json:"diskNum"`
 
 	//FileMeta lists, indicating fileName, fileSize, fileHash, fileDist...
@@ -113,7 +122,13 @@ type Erasure struct {
 	StripeInDisk [][]int64 `json:"stripeInDisk"`
 
 	// the path of file recording all disks path
-	DiskFilePath string `json:"-"`
+	DiskMountPath string `json:"-"`
+
+	// DiskBWPath is the file path recording all disks' read bandwidth and write bandwidth
+	DiskBWPath string `json:"-"`
+
+	// whether to read bandwith from file
+	ReadBWfromFile bool `json:"-"`
 
 	// whether or not to override former files or directories, default to false
 	Override bool `json:"-"`

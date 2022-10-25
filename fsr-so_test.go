@@ -13,12 +13,14 @@ func TestGetMinimalTime(t *testing.T) {
 		DiskNum:         12,
 		BlockSize:       1048576,
 		MemSize:         8,
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
+		DiskBWPath:      testDiskBWPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
 		Quiet:           true,
+		ReadBWfromFile:  true,
 	}
 	err = testEC.ReadDiskPath()
 	if err != nil {
@@ -32,10 +34,10 @@ func TestGetMinimalTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testEC.getDiskBWFIO()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// err = testEC.getDiskBWFIO()
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 	fileSize := int64(1 * GiB)
 	inpath := filepath.Join("input", fmt.Sprintf("temp-%d", fileSize))
 	err = generateRandomFileBySize(inpath, fileSize)

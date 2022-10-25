@@ -47,11 +47,11 @@ func (e *Erasure) Update(oldFile, newFile string) error {
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.diskPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
 				diskFail = true
-				return &diskError{disk.diskPath, " avilable flag set flase"}
+				return &diskError{disk.mntPath, " avilable flag set flase"}
 			}
 			ifs[i], err = os.OpenFile(blobPath, os.O_RDWR|os.O_TRUNC, 0777)
 			if err != nil {

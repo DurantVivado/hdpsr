@@ -70,8 +70,8 @@ func TestUpdateNormalExchange(t *testing.T) {
 	// after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -152,8 +152,8 @@ func TestUpdateNormalAppend(t *testing.T) {
 	// after that, all temporary file should be deleted
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -233,9 +233,9 @@ func TestUpdateNormalDelete(t *testing.T) {
 	// then change the file content randomly, and update it
 	// after that, all temporary file should be deleted
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*FileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -316,8 +316,8 @@ func benchmarkUpdate(b *testing.B, dataShards, parityShards, diskNum int, blockS
 	b.ResetTimer()
 	b.SetBytes(fileSize)
 	testEC := &Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -440,8 +440,8 @@ func BenchmarkUpdate20x4x24x4096x20M(b *testing.B) {
 func benchmarkUpdateParallel(b *testing.B, dataShards, parityShards, diskNum int, blockSize, fileSize int64, conNum int) {
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile:      "conf.json",
-		DiskFilePath:    testDiskFilePath,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,

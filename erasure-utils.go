@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -18,8 +17,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // A Go-version Set
@@ -355,28 +352,26 @@ func copyFile(srcFile, destFile string) (int64, error) {
 	return io.Copy(file2, file1)
 }
 
-func execShell(command string) ([]byte, error) {
+func execShell(command string) (string, error) {
 	cmd := exec.Command("/bin/bash", "-c", command)
 
 	stdout, err := cmd.StdoutPipe()
 	defer stdout.Close()
 	if err != nil {
-		log.Printf("Error:can not obtain stdout pipe for command:%s\n", err)
-		return nil, err
+		return "", err
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Println("Error:The command is err,", err)
-		return nil, err
+		return "", err
 	}
 
 	result, _ := ioutil.ReadAll(stdout)
 
 	if err := cmd.Wait(); err != nil {
-		log.Println("wait:", err.Error())
-		return nil, err
+		return "", err
 	}
-	return result, nil
+	retstr := strings.Split(string(result), "\n")[0]
+	return retstr, nil
 }
 
 func parsePartition(partInfo string) (string, error) {
@@ -486,70 +481,4 @@ func sort2DArray(data [][]float64) {
 	for i := range data {
 		sort.Sort(sort.Reverse(sort.Float64Slice(data[i])))
 	}
-}
-
-// getDiskBWRead reads a fix-sized chunk and get the disk bandwidth
-const CHUNKSIZE = 50 * KiB
-
-func (e *Erasure) getDiskBWRead(ifs []*os.File) error {
-	erg := new(errgroup.Group)
-	for i, disk := range e.diskInfos[0:e.DiskNum] {
-		i := i
-		disk := disk
-		erg.Go(func() error {
-			if !disk.available {
-				return nil
-			}
-			buf := make([]byte, CHUNKSIZE)
-			start := time.Now()
-			_, err = ifs[i].Read(buf)
-			if err != nil && err != io.EOF {
-				return err
-			}
-			disk.bandwidth =
-				float64(CHUNKSIZE/KiB) / time.Since(start).Seconds()
-			return nil
-		})
-	}
-	if err := erg.Wait(); err != nil {
-		return err
-	}
-	if !e.Quiet {
-		for _, disk := range e.diskInfos[0:e.DiskNum] {
-			log.Printf("%s bandwidth %.3f Byte/s\n",
-				disk.diskPath, disk.bandwidth)
-		}
-	}
-	return nil
-}
-
-// fioGetDiskBW proactively measures disk bandwidth using `fio`
-func FIO(dev string, bs string, rw string, ioengine string, iodepth int, runtime int) (
-	[]byte, error) {
-	name := fmt.Sprintf("Job-%s-%s-%s", dev, bs, rw)
-	cmd := fmt.Sprintf("fio -filename=%s -bs=%s -direct=1 -thread -rw=%s -name=%s -ioengine=%s -iodepth=%d -runtime=%d",
-		dev, bs, rw, name, ioengine, iodepth, runtime)
-	return execShell(cmd)
-}
-
-// we use the average bw as the
-func grepBWRead(blocksize string, dev string) (float64, error) {
-	name := fmt.Sprintf("Job-%s-%s-%s", dev, blocksize, "read")
-	subcmd := "| grep BW | awk -F ' ' '{print $(NF-1)}' | cut -c 4-7"
-	cmd := fmt.Sprintf("fio -filename=%s -bs=%s -direct=1 -thread -rw=%s -name=%s -ioengine=%s -iodepth=%d -runtime=%d %s",
-		dev, blocksize, "read", name, "libaio", 16, 15, subcmd)
-	result, err := execShell(cmd)
-	if err != nil {
-		return 0, err
-	}
-	res := strings.Split(string(result), "\n")[0]
-	ret, _ := strconv.ParseFloat(string(res), 64)
-	return ret, nil
-}
-
-func (e *Erasure) getDiskBWFIO() error {
-	log.Println("warning: the measured device path must be block device, e.g., /dev/sda")
-	for _, disk := range e.diskInfos {
-	}
-	return nil
 }

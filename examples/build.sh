@@ -33,9 +33,9 @@ is=2
 
 go build -o main ./main.go
 
-# ./main -md init -k $k -m $m -dn $dn -bs $bs -mem $mem -sn $sn
+./main -md init -k $k -m $m -dn $dn -bs $bs -mem $mem -sn $sn -readbw
 # ./main -md encode -f $inputdir/$filename -conStripes 100 -o
-./main -md fsr -fmd diskFail -fd $fd -f $inputdir$filename -sl $sl -o
+# ./main -md fsr -fmd diskFail -fd $fd -f $inputdir$filename -sl $sl -o
 # ./main -md psras -fmd diskFail -fn 1 -f $inputdir$filename -sl $sl
 # ./main -md psrpa -fmd diskFail -fn 1 -f $inputdir$filename -sl $sl
 

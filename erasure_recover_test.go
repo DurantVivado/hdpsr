@@ -14,9 +14,9 @@ import (
 func TestRecover(t *testing.T) {
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -99,7 +99,7 @@ func TestRecover(t *testing.T) {
 							}
 						}
 						//restore diskConfigFile to previous content
-						if err := os.Rename(testDiskFilePath+".old", testDiskFilePath); err != nil {
+						if err := os.Rename(testDiskMountPath+".old", testDiskMountPath); err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d,%s\n", k, m, bs, N, err.Error())
 						}
 						err = testEC.ReadDiskPath()
@@ -120,9 +120,9 @@ func benchmarkRecover(b *testing.B, dataShards, parityShards, diskNum, failNum i
 	b.ResetTimer()
 	genTempDir()
 	testEC := &Erasure{
-		ConfigFile: "conf.json",
+		ConfigFile: testConfigFile,
 		// fileMap:         make(map[string]*fileInfo),
-		DiskFilePath:    testDiskFilePath,
+		DiskMountPath:   testDiskMountPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
@@ -181,7 +181,7 @@ func benchmarkRecover(b *testing.B, dataShards, parityShards, diskNum, failNum i
 			b.Fatal(err)
 		}
 		//restore diskConfigFile to previous content
-		if err := os.Rename(testDiskFilePath+".old", testDiskFilePath); err != nil {
+		if err := os.Rename(testDiskMountPath+".old", testDiskMountPath); err != nil {
 			b.Fatal(err)
 		}
 		err = testEC.ReadDiskPath()
@@ -195,9 +195,9 @@ func benchmarkRecover(b *testing.B, dataShards, parityShards, diskNum, failNum i
 // 	b.ResetTimer()
 // 	genTempDir()
 // 	testEC := &Erasure{
-// 		ConfigFile: "conf.json",
+// 		ConfigFile: testConfigFile,
 // 		// fileMap:         make(map[string]*fileInfo),
-// 		DiskFilePath:    testDiskFilePath,
+// 		DiskMountPath:    testDiskMountPath,
 // 		ReplicateFactor: 3,
 // 		ConStripes:      100,
 // 		Override:        true,
@@ -254,7 +254,7 @@ func benchmarkRecover(b *testing.B, dataShards, parityShards, diskNum, failNum i
 //				b.Fatal(err)
 //			}
 //			//restore diskConfigFile to previous content
-//			if err := os.Rename(testDiskFilePath+".old", testDiskFilePath); err != nil {
+//			if err := os.Rename(testDiskMountPath+".old", testDiskMountPath); err != nil {
 //				b.Fatal(err)
 //			}
 //			err = testEC.ReadDiskPath()
