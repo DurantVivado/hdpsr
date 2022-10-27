@@ -42,8 +42,8 @@ type diskInfo struct {
 	//the capacity of a disk (in Bytes)
 	capacity int64
 
-	//the partition of a disk
-	partition string
+	//the blkdev of a disk
+	blkdev string
 
 	// the latency of a disk (in seconds)
 	latency float64
@@ -125,10 +125,10 @@ type Erasure struct {
 	DiskMountPath string `json:"-"`
 
 	// DiskBWPath is the file path recording all disks' read bandwidth and write bandwidth
-	DiskBWPath string `json:"-"`
+	DiskBWPath string `json:"diskBWPath"`
 
 	// whether to read bandwith from file
-	ReadBWfromFile bool `json:"-"`
+	ReadBWfromFile bool `json:"readBW"`
 
 	// whether or not to override former files or directories, default to false
 	Override bool `json:"-"`
@@ -176,7 +176,7 @@ type fileInfo struct {
 	//system-level file info
 	// metaInfo     *os.fileInfo
 
-	//loadBalancedScheme is the most load-balanced scheme derived by SGA algo
+	//loadBalancedScheme is the most load-balanced Scheme derived by SGA algo
 	loadBalancedScheme [][]int
 }
 
@@ -206,8 +206,8 @@ type blockInfo struct {
 type Options struct {
 	//Degrade tells if degrade read is on
 	Degrade bool
-	// select scheme for algorithmic purpose
-	scheme int
+	// select Scheme for algorithmic purpose
+	Scheme int
 }
 
 // SimOptions defines the parameters for simulation

@@ -57,17 +57,21 @@ func (e *Erasure) ReadDiskPath() error {
 		e.diskInfos = append(e.diskInfos, diskInfo)
 		id++
 	}
+	return nil
+}
+
+func (e *Erasure) ReadDiskBW() error {
 	//read disk bandwidth path
 	if !e.ReadBWfromFile {
-		return nil
+		return e.getDiskBWFIO()
 	}
 	ff, err := os.Open(e.DiskBWPath)
 	if err != nil {
 		return err
 	}
 	defer ff.Close()
-	buf = bufio.NewReader(ff)
-	id = 0
+	buf := bufio.NewReader(ff)
+	id := 0
 	for {
 		line, _, err := buf.ReadLine()
 		if err == io.EOF {
@@ -151,8 +155,15 @@ func (e *Erasure) InitSystem(assume bool) error {
 	}
 	e.StripeNum = 0
 	if !e.Quiet {
-		fmt.Printf("System init!\n Erasure parameters: dataShards:%d, parityShards:%d,blocksize:%d,diskNum:%d\n",
-			e.K, e.M, e.BlockSize, e.DiskNum)
+		log.Printf("System initialized!\nSystem parameters: \n")
+		fmt.Printf(" %-20s:%20d\n", "data shards", e.K)
+		fmt.Printf(" %-20s:%20d\n", "parity shards", e.M)
+		fmt.Printf(" %-20s:%20d\n", "block size (bytes)", e.BlockSize)
+		fmt.Printf(" %-20s:%20d\n", "used disk number", e.DiskNum)
+		fmt.Printf(" %-20s:%20d\n", "total disk number",
+			len(e.diskInfos))
+		fmt.Printf(" %-20s:%20d\n", "memory limit (GiB)", e.MemSize)
+
 	}
 	return nil
 }
@@ -276,7 +287,14 @@ func (e *Erasure) ReadConfig() error {
 	}
 	e.dataStripeSize = int64(e.K) * e.BlockSize
 	e.allStripeSize = int64(e.K+e.M) * e.BlockSize
-
+	if int64(e.MemSize*GiB) < e.allStripeSize {
+		return errInsufficientMemory
+	}
+	// read the disks' bandwidth
+	err = e.ReadDiskBW()
+	if err != nil {
+		return err
+	}
 	e.errgroupPool.New = func() interface{} {
 		return &errgroup.Group{}
 	}
@@ -514,20 +532,13 @@ func (e *Erasure) ReadDiskInfo() error {
 func (e *Erasure) ReadDiskPartition() error {
 	erg := new(errgroup.Group)
 	for i := range e.diskInfos {
-		i := i
+		disk := e.diskInfos[i]
 		erg.Go(func() error {
-			// firstly, execute "df -h mntPath" to get partition
-			command := `df -h ` + e.diskInfos[i].mntPath
-			partInfo, err := execShell(command)
+			part, err := getBlockDevice(disk.mntPath)
 			if err != nil {
 				return err
 			}
-			partName, err := parsePartition(partInfo)
-			if err != nil {
-				return err
-			}
-			e.diskInfos[i].partition = partName
-
+			disk.blkdev = part
 			return nil
 		})
 	}
@@ -537,12 +548,13 @@ func (e *Erasure) ReadDiskPartition() error {
 	return nil
 }
 
+// ReadDiskLatency reads the current IO Bandwidth using `iostat`
 func (e *Erasure) ReadDiskLatency() error {
 	erg := new(errgroup.Group)
 	for i := range e.diskInfos {
 		i := i
 		erg.Go(func() error {
-			command := `iostat -x ` + e.diskInfos[i].partition
+			command := `iostat -x ` + e.diskInfos[i].blkdev
 			ioInfo, err := execShell(command)
 			if err != nil {
 				return err
@@ -562,11 +574,13 @@ func (e *Erasure) ReadDiskLatency() error {
 }
 
 func (e *Erasure) PrintDiskInfo() {
-	fmt.Println("------------disk info-------------")
+	fmt.Println("----------------disk info-----------------")
 	for _, disk := range e.diskInfos {
-		fmt.Printf("disk id: %d\n", disk.diskId)
-		fmt.Printf("disk path: %s\n", disk.mntPath)
-		fmt.Printf("disk partition path: %s\n", disk.partition)
-		fmt.Printf("disk latency: %f\n\n", disk.latency)
+		fmt.Printf(" %-20s:%20d\n", "disk id", disk.diskId)
+		fmt.Printf(" %-20s:%20s\n", "disk mountpath", disk.mntPath)
+		fmt.Printf(" %-20s:%20s\n", "disk blkdev", disk.blkdev)
+		fmt.Printf(" %-20s:%20f\n", "disk read_bw", disk.read_bw)
+		fmt.Printf(" %-20s:%20f\n", "disk latency", disk.latency)
+		fmt.Println("------------------------------------------")
 	}
 }

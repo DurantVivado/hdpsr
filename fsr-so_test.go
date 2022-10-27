@@ -27,6 +27,10 @@ func TestGetMinimalTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = testEC.ReadDiskInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = testEC.InitSystem(true)
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +72,7 @@ func TestGetMinimalTime(t *testing.T) {
 	// var stripeOrder [][]int
 	var minTime float64
 	fmt.Printf("Continuous Method\n")
-	_, minTime = testEC.getMinimalTimeContinous(stripeRepairTime)
+	_, minTime = testEC.getMinimalTimeContinuous(stripeRepairTime)
 	fmt.Printf("minTime:%f\n", minTime)
 	// fmt.Printf("stripeOrder:%v\n", stripeOrder)
 
@@ -140,11 +144,11 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 	rm, err := testEC.FullStripeRecoverWithOrder(
 		fileName,
 		slowLatency,
-		&Options{scheme: RANDOM})
+		&Options{Scheme: RANDOM})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("scheme CONTINOUS costs: ", time.Since(start))
+	fmt.Println("Scheme CONTINOUS costs: ", time.Since(start))
 	for old, new := range rm {
 		oldPath := filepath.Join(old, fileName, "BLOB")
 		newPath := filepath.Join(new, fileName, "BLOB")

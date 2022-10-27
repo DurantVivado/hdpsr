@@ -352,6 +352,7 @@ func copyFile(srcFile, destFile string) (int64, error) {
 	return io.Copy(file2, file1)
 }
 
+// execShell will return the string appearing before the first "\n"
 func execShell(command string) (string, error) {
 	cmd := exec.Command("/bin/bash", "-c", command)
 

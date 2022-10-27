@@ -114,7 +114,7 @@ func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency int, 
 	start := time.Now()
 
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * GiB) / int(e.dataStripeSize)
+	e.ConStripes = (e.MemSize * GiB) / int(e.allStripeSize)
 	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")

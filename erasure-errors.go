@@ -14,7 +14,8 @@ func (e *diskError) Error() string {
 	return fmt.Sprintf("disk %s is not available for :%s", e.mntPath, e.cause)
 }
 
-//Error definitions
+// Error definitions
+var errInsufficientMemory = errors.New("Insufficient memory, please enlarge MemSize")
 
 var errConfFileNotExist = errors.New("the conf file not exist")
 
@@ -44,7 +45,7 @@ var errDiskNumTooLarge = errors.New("diskNum is larger than provided")
 
 var errTooFewBlockAliveInStripe = errors.New("not enough blocks for reading in a stripe")
 
-var errPartInfoNotFound = errors.New("partition info not found")
+var errPartInfoNotFound = errors.New("blkdev info not found")
 
 var errIoStatNotFound = errors.New("io status await or svctm not found")
 

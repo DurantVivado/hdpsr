@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -121,12 +120,14 @@ func getBlockDevice(mountPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ret := strings.Split(string(result), "\n")[0]
-	return ret, nil
+	return result, nil
 }
 
 func (e *Erasure) getDiskBWFIO() error {
 	erg := new(errgroup.Group)
+	if !e.Quiet {
+		log.Println("get Disk BW...")
+	}
 	for _, disk := range e.diskInfos {
 		// find the corresponding block device of mntPath
 		disk := disk

@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	hdpsr "github.com/YuchongHu/hdpsr"
+	hdpsr "github.com/DurantVivado/hdpsr"
 	"github.com/pkg/profile"
 )
 
@@ -27,9 +27,10 @@ const profileEnable = false
 
 // default file paths (in the same directory as `main.go`)
 const (
-	defaultDiskBWPath    = "DiskBW"
+	defaultDiskBWPath    = "diskBW"
 	defaultConfigFile    = "conf.json"
 	defaultDiskMountPath = ".hdr.disks.path"
+	defaultLogfile       = "hdpsr.log"
 )
 
 var err error
@@ -128,6 +129,51 @@ func main() {
 			FileName: filePath,
 		})
 		_, err = erasure.FullStripeRecover(filePath, slowLatency, &hdpsr.Options{})
+		failOnErr(mode, err)
+	case "fsr-so_c":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverWithOrder(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{Scheme: hdpsr.CONTINUOUS})
+		failOnErr(mode, err)
+	case "fsr-so_g":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverWithOrder(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{Scheme: hdpsr.GREEDY})
+		failOnErr(mode, err)
+	case "fsr-so_r":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverWithOrder(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{Scheme: hdpsr.RANDOM})
 		failOnErr(mode, err)
 	case "mfsr":
 		// recover with stripe
@@ -250,11 +296,11 @@ func main() {
 		log.Fatalf("Can't parse the parameters, please check %s!", mode)
 	}
 	//It functions as a testbed, so currently I won't use goroutines.
-	content := fmt.Sprintf("    %s consumes %.3f s\n", mode, time.Since(start).Seconds())
+	content := fmt.Sprintf("[%s] consumes %.3f s\n", mode, time.Since(start).Seconds())
 	log.Print(content)
 	if ifLog {
-		logfile := "log.txt"
-		file, err := os.OpenFile(logfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+
+		file, err := os.OpenFile(defaultLogfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
 		if err != nil {
 			panic(err)
 		}

@@ -3,7 +3,6 @@ package hdpsr
 import (
 	"container/heap"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -21,7 +20,7 @@ const (
 	RANDOM     = 2
 )
 
-const RAND_TIMES = 2000
+const RAND_TIMES = 200000
 
 func findContinuousScheme(A []float64, mid float64, Pr int) (
 	stripeOrder [][]int, minTime float64) {
@@ -47,13 +46,12 @@ func findContinuousScheme(A []float64, mid float64, Pr int) (
 }
 
 // full-stripe-repair with stripe order first
-func (e *Erasure) getMinimalTimeContinous(stripeRepairTime []float64) (
+func (e *Erasure) getMinimalTimeContinuous(stripeRepairTime []float64) (
 	stripeOrder [][]int, minTime float64) {
 	if len(stripeRepairTime) == 0 {
 		return nil, 0
 	}
-	Pr := (e.MemSize * GiB) / (e.K * int(e.dataStripeSize))
-	fmt.Printf("Pr:%d\n", Pr)
+	Pr := (e.MemSize * GiB) / int(e.allStripeSize)
 	stripeOrder = make([][]int, Pr)
 	if len(stripeRepairTime) <= Pr {
 		for i := 0; i < len(stripeRepairTime); i++ {
@@ -87,7 +85,7 @@ func (e *Erasure) getMinimalTimeGreedy(stripeRepairTime []float64) (
 	if n == 0 {
 		return nil, 0
 	}
-	Pr := (e.MemSize * GiB) / (e.K * int(e.dataStripeSize))
+	Pr := (e.MemSize * GiB) / int(e.allStripeSize)
 	stripeOrder = make([][]int, Pr)
 	if n <= Pr {
 		for i := 0; i < n; i++ {
@@ -121,7 +119,7 @@ func (e *Erasure) getMinimalTimeRand(stripeRepairTime []float64) (
 	if len(stripeRepairTime) == 0 {
 		return nil, 0
 	}
-	Pr := (e.MemSize * GiB) / (e.K * int(e.dataStripeSize))
+	Pr := (e.MemSize * GiB) / int(e.allStripeSize)
 	stripeOrder = make([][]int, Pr)
 	if len(stripeRepairTime) <= Pr {
 		for i := 0; i < len(stripeRepairTime); i++ {
@@ -155,7 +153,7 @@ func (e *Erasure) getMinimalTimeRand(stripeRepairTime []float64) (
 			stripeOrder = tempOrder
 		}
 	}
-	fmt.Println("valid :", RAND_TIMES-fail)
+	// fmt.Println("valid :", RAND_TIMES-fail)
 	return
 }
 
@@ -246,8 +244,9 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	// read stripes every blob in parallel
 	// read blocks every stripe in parallel
 	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * GiB) / int(e.dataStripeSize)
+	e.ConStripes = (e.MemSize * GiB) / int(e.allStripeSize)
 	e.ConStripes = minInt(e.ConStripes, stripeNum)
+	// fmt.Println("Inter-stripe parallelism:", e.ConStripes)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
 	}
@@ -257,17 +256,24 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	// stripes := e.StripeInDisk[failDisk]
 
 	stripeRepairTime := e.getStripeRepairtime(slowLatency)
+	// if !e.Quiet {
+	// fmt.Printf("stripeRepairTime: %v\n", stripeRepairTime)
+	// }
 	var stripeOrder [][]int
 	var minTime float64
-	if options.scheme == CONTINUOUS {
-		stripeOrder, minTime = e.getMinimalTimeContinous(stripeRepairTime)
-	} else if options.scheme == GREEDY {
+	if options.Scheme == CONTINUOUS {
+		log.Println("FSR-SO_c")
+		stripeOrder, minTime = e.getMinimalTimeContinuous(stripeRepairTime)
+	} else if options.Scheme == GREEDY {
+		log.Println("FSR-SO_g")
 		stripeOrder, minTime = e.getMinimalTimeGreedy(stripeRepairTime)
-	} else if options.scheme == RANDOM {
+	} else if options.Scheme == RANDOM {
+		log.Println("FSR-SO_r")
 		stripeOrder, minTime = e.getMinimalTimeRand(stripeRepairTime)
 	}
 	if !e.Quiet {
 		log.Printf("minTime: %.3f s\n", minTime)
+		log.Printf("StripeOrder: %v\n", stripeOrder)
 	}
 	concurrency := len(stripeOrder)
 	slotId := make([]int, concurrency)
@@ -356,10 +362,10 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 		e.errgroupPool.Put(eg)
 
 	}
-	err = e.updateDiskPath(replaceMap)
-	if err != nil {
-		return nil, err
-	}
+	// err = e.updateDiskPath(replaceMap)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if !e.Quiet {
 		log.Println("Finish recovering (using FSR-SO)")
 	}
@@ -388,7 +394,7 @@ func (e *Erasure) getStripeRepairtime(slowLatency int) []float64 {
 			maxTime = maxFloat64(maxTime, blkTime)
 		}
 		stripeRepairTime[i] = maxTime
-		fmt.Printf("i:%d, time:%f\n", i, stripeRepairTime[i])
+		// fmt.Printf("i:%d, time:%f\n", i, stripeRepairTime[i])
 	}
 	return stripeRepairTime
 }

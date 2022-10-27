@@ -139,7 +139,7 @@ func (e *Erasure) FullStripeMultiRecover(fileName string,
 		log.Printf("Start recovering with stripe, totally %d stripes need recovery",
 			stripeNum)
 	}
-	e.ConStripes = (e.MemSize * GiB) / int(e.dataStripeSize)
+	e.ConStripes = (e.MemSize * GiB) / int(e.allStripeSize)
 	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	if e.ConStripes == 0 {
 		return nil, errors.New("memory size is too small")
