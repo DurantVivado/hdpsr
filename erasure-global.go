@@ -206,6 +206,8 @@ type blockInfo struct {
 type Options struct {
 	//Degrade tells if degrade read is on
 	Degrade bool
+	// select scheme for algorithmic purpose
+	scheme int
 }
 
 // SimOptions defines the parameters for simulation

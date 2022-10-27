@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestGetMinimalTime(t *testing.T) {
@@ -11,7 +12,7 @@ func TestGetMinimalTime(t *testing.T) {
 		K:               6,
 		M:               2,
 		DiskNum:         12,
-		BlockSize:       1048576,
+		BlockSize:       8 * MiB,
 		MemSize:         8,
 		ConfigFile:      testConfigFile,
 		DiskMountPath:   testDiskMountPath,
@@ -38,13 +39,13 @@ func TestGetMinimalTime(t *testing.T) {
 	// if err != nil {
 	// 	t.Fatal(err)
 	// }
-	fileSize := int64(1 * GiB)
+	fileSize := int64(5 * GiB)
 	inpath := filepath.Join("input", fmt.Sprintf("temp-%d", fileSize))
 	err = generateRandomFileBySize(inpath, fileSize)
 	if err != nil {
 		t.Error(err)
 	}
-	// defer deleteTempFiles([]int64{fileSize})
+	defer delTempDir()
 	_, err := testEC.EncodeFile(inpath)
 	if err != nil {
 		t.Error(err)
@@ -53,12 +54,15 @@ func TestGetMinimalTime(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
+	testEC.Destroy(&SimOptions{
+		Mode:     "diskFail",
+		FailDisk: "0",
+	})
 	// StripeNum := 1000
 	// stripeRepairTime := []float64{2, 3, 4, 4, 4, 5, 6, 8, 8, 9}
 	// stripeRepairTime := genRandArrFloat64(StripeNum, 10, 0)
 	// fmt.Println("Stripe Repair Index:", []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
-	slowLatency := 4
+	slowLatency := 0
 	stripeRepairTime := testEC.getStripeRepairtime(slowLatency)
 	fmt.Println("Stripe Repair Time :", stripeRepairTime)
 	// var stripeOrder [][]int
@@ -77,4 +81,80 @@ func TestGetMinimalTime(t *testing.T) {
 	_, minTime = testEC.getMinimalTimeRand(stripeRepairTime)
 	fmt.Printf("minTime:%f\n", minTime)
 	// fmt.Printf("stripeOrder:%v\n", stripeOrder)
+}
+
+func TestFullStripeRecoverWithOrder(t *testing.T) {
+	testEC := &Erasure{
+		K:               6,
+		M:               2,
+		DiskNum:         12,
+		BlockSize:       512 * KiB,
+		MemSize:         2,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
+		DiskBWPath:      testDiskBWPath,
+		ReplicateFactor: 3,
+		ConStripes:      100,
+		Override:        true,
+		Quiet:           true,
+		ReadBWfromFile:  true,
+	}
+	err = testEC.ReadDiskPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.InitSystem(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.ReadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// err = testEC.getDiskBWFIO()
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	fileSize := int64(1 * GiB)
+	fileName := fmt.Sprintf("temp-%d", fileSize)
+	inpath := filepath.Join("input", fileName)
+	slowLatency := 0
+	err = generateRandomFileBySize(inpath, fileSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// defer delTempDir()
+	_, err := testEC.EncodeFile(inpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.WriteConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testEC.Destroy(&SimOptions{
+		Mode:     "diskFail",
+		FailDisk: "0",
+	})
+	start := time.Now()
+	rm, err := testEC.FullStripeRecoverWithOrder(
+		fileName,
+		slowLatency,
+		&Options{scheme: RANDOM})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("scheme CONTINOUS costs: ", time.Since(start))
+	for old, new := range rm {
+		oldPath := filepath.Join(old, fileName, "BLOB")
+		newPath := filepath.Join(new, fileName, "BLOB")
+		if ok, err := checkFileIfSame(newPath, oldPath); !ok && err != nil {
+			t.Fatal(err)
+		} else if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {
+		t.Error(err)
+	}
 }

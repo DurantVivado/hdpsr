@@ -157,23 +157,31 @@ func (e *Erasure) InitSystem(assume bool) error {
 	return nil
 }
 
-// reset the storage assets
+// reset delete the folders containing BLOB
 func (e *Erasure) reset() error {
 
 	g := new(errgroup.Group)
 
 	for _, path := range e.diskInfos {
 		path := path
-		files, err := os.ReadDir(path.mntPath)
+		objects, err := os.ReadDir(path.mntPath)
 		if err != nil {
 			return err
 		}
-		if len(files) == 0 {
+		if len(objects) == 0 {
 			continue
 		}
 		g.Go(func() error {
-			for _, file := range files {
-				err = os.RemoveAll(filepath.Join(path.mntPath, file.Name()))
+			for _, object := range objects {
+				if !object.IsDir() {
+					continue
+				}
+				if ok, err := pathExist(filepath.Join(object.Name(), "BLOB")); !ok && err == nil {
+					continue
+				} else if err != nil {
+					return err
+				}
+				err = os.RemoveAll(filepath.Join(path.mntPath, object.Name()))
 				if err != nil {
 					return err
 				}

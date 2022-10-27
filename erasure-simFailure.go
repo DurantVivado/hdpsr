@@ -55,8 +55,8 @@ func (e *Erasure) Destroy(simOption *SimOptions) {
 			e.diskInfos[shuff[i]].available = false
 		}
 	} else if simOption.Mode == "bitRot" || simOption.Mode == "BitRot" {
-		//in thi smode, we don't really corrupt a bit. Instead, we mark the block containing rots as failed
-		// which is omnipresent is today's storage facilities.
+		//in this mode, we don't really corrupt a bit. Instead, we mark the block containing rots as failed
+		// which looks quite omnipresent in today's storage facilities.
 		//if fileName is "", we corrupt all the files, else corrupt specific file
 		if simOption.FailNum > e.K+e.M {
 			simOption.FailNum = e.K + e.M
