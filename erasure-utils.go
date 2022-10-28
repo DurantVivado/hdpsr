@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -482,4 +483,68 @@ func sort2DArray(data [][]float64) {
 	for i := range data {
 		sort.Sort(sort.Reverse(sort.Float64Slice(data[i])))
 	}
+}
+
+// getDiskUsage returns the disk usage in blocksize `bs`
+func getDiskUsage(blkdev string, bs int64) (size int64, used int64, avail int64) {
+	size_cmd := fmt.Sprintf(" df %s -B %d | sed -n 2p | awk -F ' ' '{print $2}'", blkdev, bs)
+	ret, err := execShell(size_cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	size, err = strconv.ParseInt(ret, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	used_cmd := fmt.Sprintf(" df %s -B %d | sed -n 2p | awk -F ' ' '{print $3}'", blkdev, bs)
+	ret, err = execShell(used_cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	used, err = strconv.ParseInt(ret, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	avail_cmd := fmt.Sprintf(" df %s -B %d | sed -n 2p | awk -F ' ' '{print $4}'", blkdev, bs)
+	ret, err = execShell(avail_cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	avail, err = strconv.ParseInt(ret, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+// getMemUsage returns the memory usage in gigabytes
+func getMemUsage() (total int64, used int64, free int64) {
+	total_cmd := "free --giga | grep Mem | awk -F ' ' '{print $2}'"
+	ret, err := execShell(total_cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	total, err = strconv.ParseInt(ret, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	used_cmd := "free --giga | grep Mem | awk -F ' ' '{print $3}'"
+	ret, err = execShell(used_cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	used, err = strconv.ParseInt(ret, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	free_cmd := "free --giga | grep Mem | awk -F ' ' '{print $4}'"
+	ret, err = execShell(free_cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	free, err = strconv.ParseInt(ret, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
 }

@@ -21,6 +21,27 @@ import (
 // 	filenum int
 // }
 
+type MemUsage struct {
+	Used      int64
+	Free      int64
+	Total     int64
+	Preserved int64
+}
+
+type DiskUsage struct {
+	Size      int64
+	Used      int64
+	Avail     int64
+	Preserved int64
+}
+
+type StorageUsage struct {
+	Size      int64
+	Used      int64
+	Avail     int64
+	Preserved int64
+}
+
 // diskInfo contains the disk-level information
 // but not mechanical and electrical parameters
 type diskInfo struct {
@@ -29,6 +50,9 @@ type diskInfo struct {
 
 	//the disk path
 	mntPath string
+
+	// DiskUsage
+	diskUsage *DiskUsage
 
 	//it's flag and when disk fails, it renders false.
 	available bool
@@ -81,6 +105,9 @@ type Erasure struct {
 
 	// the disk number, only the first diskNum disks are used in mntPathFile
 	DiskNum int `json:"diskNum"`
+
+	// storage usage
+	StorageUsage *StorageUsage `json:"storageUsage"`
 
 	//FileMeta lists, indicating fileName, fileSize, fileHash, fileDist...
 	FileMeta []*fileInfo `json:"fileLists"`
@@ -145,6 +172,9 @@ type Erasure struct {
 	// memory size
 	MemSize int `json:"memSize"`
 
+	// memory usage
+	memUsage *MemUsage `json:"-"`
+
 	// slowNum
 	SlowNum int `json:"slowNum"`
 }
@@ -208,6 +238,11 @@ type Options struct {
 	Degrade bool
 	// select Scheme for algorithmic purpose
 	Scheme int
+	// if set `testmode` true, all the encode/decode actions
+	// are perfomed under `/test` subdirectory
+	testmode bool
+	//whether to consult user's instruction before handling something destructive
+	warning bool
 }
 
 // SimOptions defines the parameters for simulation
@@ -231,12 +266,13 @@ var (
 const (
 	blkOK         blockStat = 0
 	blkFail       blockStat = 1
-	tempFile                = "./test/file.temp"
+	TESTDIR                 = "test"
 	maxGoroutines           = 10240
 	intBit                  = 64
-	GiB                     = 1024 * 1024 * 1024
-	MiB                     = 1024 * 1024
-	KiB                     = 1024
+	TiB                     = 1 << 40
+	GiB                     = 1 << 30
+	MiB                     = 1 << 20
+	KiB                     = 1 << 10
 )
 
 //templates

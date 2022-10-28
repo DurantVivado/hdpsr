@@ -182,24 +182,31 @@ func (e *Erasure) reset() error {
 		if len(objects) == 0 {
 			continue
 		}
-		g.Go(func() error {
-			for _, object := range objects {
-				if !object.IsDir() {
-					continue
-				}
-				if ok, err := pathExist(filepath.Join(object.Name(), "BLOB")); !ok && err == nil {
-					continue
-				} else if err != nil {
-					return err
-				}
-				err = os.RemoveAll(filepath.Join(path.mntPath, object.Name()))
+		// g.Go(func() error {
+		for _, object := range objects {
+			if !object.IsDir() {
+				continue
+			}
+			if object.Name() == "META" {
+				err = os.Remove(filepath.Join(path.mntPath, object.Name()))
 				if err != nil {
 					return err
 				}
-
+				continue
 			}
-			return nil
-		})
+			if ok, err := pathExist(filepath.Join(path.mntPath, object.Name(), "BLOB")); !ok && err == nil {
+				continue
+			} else if err != nil {
+				return err
+			}
+			err = os.RemoveAll(filepath.Join(path.mntPath, object.Name()))
+			if err != nil {
+				return err
+			}
+
+		}
+		// return nil
+		// })
 	}
 	if err := g.Wait(); err != nil {
 		return err
@@ -287,8 +294,15 @@ func (e *Erasure) ReadConfig() error {
 	}
 	e.dataStripeSize = int64(e.K) * e.BlockSize
 	e.allStripeSize = int64(e.K+e.M) * e.BlockSize
-	if int64(e.MemSize*GiB) < e.allStripeSize {
+	total, used, free := getMemUsage()
+	// without considering the memory swap
+	if int64(e.MemSize) >= int64(0.8*float64(total)) || int64(e.MemSize*GiB) < e.allStripeSize {
 		return errInsufficientMemory
+	}
+	e.memUsage = &MemUsage{
+		Total: total,
+		Used:  used,
+		Free:  free,
 	}
 	// read the disks' bandwidth
 	err = e.ReadDiskBW()
@@ -539,6 +553,12 @@ func (e *Erasure) ReadDiskPartition() error {
 				return err
 			}
 			disk.blkdev = part
+			size, used, avail := getDiskUsage(disk.blkdev, e.BlockSize)
+			disk.diskUsage = &DiskUsage{
+				Size:  size,
+				Used:  used,
+				Avail: avail,
+			}
 			return nil
 		})
 	}

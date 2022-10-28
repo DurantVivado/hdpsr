@@ -21,3 +21,14 @@ func TestGetBlockDevice(t *testing.T) {
 	}
 	fmt.Println(blkdev)
 }
+
+func TestGetDiskUsage(t *testing.T) {
+	size, used, avail := getDiskUsage("/dev/vdb1", 4096)
+	fmt.Printf("size:%d used:%d avail:%d\n", size, used, avail)
+}
+
+func TestGetMemoryUsage(t *testing.T) {
+	total, used, free := getMemUsage()
+	fmt.Printf("total:%d Gi, used:%d Gi, free:%d Gi\n", total, used, free)
+
+}

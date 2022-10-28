@@ -28,6 +28,8 @@ fd=0
 # 128M 134217728
 # 256M 268435456
 
+# drop the cache to make the result more convincing
+../drop_cache.sh 
 go build -o main ./main.go
 now=`date +%c` 
 echo -e "sh: The program started at $now."  

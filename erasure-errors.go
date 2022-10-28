@@ -15,6 +15,8 @@ func (e *diskError) Error() string {
 }
 
 // Error definitions
+var errInsufficientDiskSpace = errors.New("Insufficient disk space")
+
 var errInsufficientMemory = errors.New("Insufficient memory, please enlarge MemSize")
 
 var errConfFileNotExist = errors.New("the conf file not exist")

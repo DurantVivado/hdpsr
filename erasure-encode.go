@@ -139,6 +139,11 @@ func (e *Erasure) EncodeFile(filename string) (*fileInfo, error) {
 					e.StripeInDisk[diskId] = append(e.StripeInDisk[diskId], e.StripeNum+int64(stripeNo))
 					e.mu.Unlock()
 					erg.Go(func() error {
+						du := e.diskInfos[diskId].diskUsage
+						if du.Avail-du.Preserved < e.BlockSize {
+							return fmt.Errorf("%s disk space insufficient for holding one block",
+								e.diskInfos[diskId].blkdev)
+						}
 						offset := fi.blockToOffset[stripeNo][i]
 						_, err := of[diskId].WriteAt(encodeData[i], int64(offset)*e.BlockSize)
 						if err != nil {
