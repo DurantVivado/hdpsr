@@ -17,7 +17,8 @@ const stripeFailProportion = 0.3
 //
 // for `bitRot`, `failNum` random blocks in a stripe of the file corrupts, that only works in Read Mode;
 //
-// Since it's a simulation, no real data will be lost.
+// Since it's a simulation, no real data will be lost,
+// only the available flag set false
 // Note that failNum = minInt(failNum, DiskNum).
 func (e *Erasure) Destroy(simOption *SimOptions) {
 	//if disk is currently unhealthy then give up

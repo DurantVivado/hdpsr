@@ -79,7 +79,7 @@ func TestEncodeDecodeNormal(t *testing.T) {
 						}
 
 						//evaluate the results
-						if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+						if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for hash check fail", k, m, bs, N, fileSize)
 						} else if err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for %s", k, m, bs, N, fileSize, err.Error())
@@ -162,7 +162,7 @@ func TestEncodeDecodeOneFailure(t *testing.T) {
 						}
 
 						//evaluate the results
-						if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+						if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for hash check fail", k, m, bs, N, fileSize)
 						} else if err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for %s", k, m, bs, N, fileSize, err.Error())
@@ -248,7 +248,7 @@ func TestEncodeDecodeTwoFailure(t *testing.T) {
 						}
 
 						//evaluate the results
-						if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+						if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for hash check fail", k, m, bs, N, fileSize)
 						} else if err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for %s", k, m, bs, N, fileSize, err.Error())
@@ -332,7 +332,7 @@ func TestEncodeDecodeBitRot(t *testing.T) {
 						}
 
 						//evaluate the results
-						if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+						if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for hash check fail", k, m, bs, N, fileSize)
 						} else if err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for %s", k, m, bs, N, fileSize, err.Error())
@@ -413,7 +413,7 @@ func TestEncodeDecodeOneFailureDegraded(t *testing.T) {
 						}
 
 						//evaluate the results
-						if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+						if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for hash check fail", k, m, bs, N, fileSize)
 						} else if err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for %s", k, m, bs, N, fileSize, err.Error())
@@ -500,7 +500,7 @@ func TestEncodeDecodeTwoFailureDegraded(t *testing.T) {
 						}
 
 						//evaluate the results
-						if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+						if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for hash check fail", k, m, bs, N, fileSize)
 						} else if err != nil {
 							t.Fatalf("k:%d,m:%d,bs:%d,N:%d read fails when fileSize is %d, for %s", k, m, bs, N, fileSize, err.Error())
@@ -645,7 +645,7 @@ func benchmarkEncodeDecode(b *testing.B, dataShards, parityShards, diskNum int, 
 		}
 
 		//evaluate the results
-		// if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+		// if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 		// 	b.Fatalf("k:%d,m:%d,bs:%d,N:%d,fs:%d, %s\n", dataShards, parityShards, blockSize, diskNum, fileSize, err.Error())
 		// } else if err != nil {
 		// 	b.Fatalf("k:%d,m:%d,bs:%d,N:%d,fs:%d, %s\n", dataShards, parityShards, blockSize, diskNum, fileSize, err.Error())
@@ -715,7 +715,7 @@ func benchmarkEncodeDecodeWithFault(b *testing.B, dataShards, parityShards, disk
 		}
 
 		//evaluate the results
-		// if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+		// if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 		// 	b.Fatalf("k:%d,m:%d,bs:%d,N:%d,fs:%d, %s\n", dataShards, parityShards, blockSize, diskNum, fileSize, err.Error())
 		// } else if err != nil {
 		// 	b.Fatalf("k:%d,m:%d,bs:%d,N:%d,fs:%d, %s\n", dataShards, parityShards, blockSize, diskNum, fileSize, err.Error())
@@ -1042,7 +1042,7 @@ func benchmarkEncodeDecodeConstripe(b *testing.B, conStripe, dataShards, parityS
 		}
 
 		//evaluate the results
-		// if ok, err := checkFileIfSame(inpath, outpath); !ok && err != nil {
+		// if ok, err := checkFileIfSame(inpath, outpath); !ok && err == nil {
 		// 	b.Fatalf("k:%d,m:%d,bs:%d,N:%d,fs:%d, %s\n", dataShards, parityShards, blockSize, diskNum, fileSize, err.Error())
 		// } else if err != nil {
 		// 	b.Fatalf("k:%d,m:%d,bs:%d,N:%d,fs:%d, %s\n", dataShards, parityShards, blockSize, diskNum, fileSize, err.Error())

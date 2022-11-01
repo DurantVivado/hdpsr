@@ -2,24 +2,331 @@ package hdpsr
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) findBalancedScheme(failDisk int) (readScheme [][]int) {
-	stripeNum := len(e.StripeInDisk[failDisk])
-	readScheme = make([][]int, stripeNum)
+const (
+	FIRST_K = iota
+	FASTEST_K
+	RANDOM_K
+	BALANCE_K
+)
 
+func (e *Erasure) diskMetric(load, disk_id int) float64 {
+	return float64(load) / e.diskInfos[disk_id].read_bw
+}
+
+// the default scheme: for each stripe, read the first k blocks
+func (e *Erasure) findFirstKScheme(diskFailList *map[int]bool) (
+	firstKScheme [][]int) {
+	stripeNum := len(e.Stripes)
+	failStripeSet := &IntSet{}
+	firstKScheme = make([][]int, stripeNum)
+	maxLoad := 0
+	sumDisk := make([]int, e.DiskNum)
+	sumLoad := 0
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		for i := 0; i < e.K+e.M; i++ {
+			if mapExist(*diskFailList, stripe.Dist[i]) {
+				failStripeSet.Insert(s)
+				break
+			}
+		}
+	}
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		if failStripeSet.Exist(s) {
+			for i := 0; i < e.K+e.M; i++ {
+				diskId := stripe.Dist[i]
+				if !mapExist(*diskFailList, diskId) {
+					firstKScheme[s] = append(firstKScheme[s], diskId)
+					sumDisk[diskId]++
+					maxLoad = maxInt(maxLoad, sumDisk[diskId])
+					sumLoad++
+					if len(firstKScheme[s]) == e.K {
+						break
+					}
+				}
+			}
+		} else {
+			firstKScheme[s] = stripe.Dist
+		}
+	}
+	if !e.Quiet {
+		fmt.Printf("---------------FSR-1K Algorithm--------------")
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("disk loads:\n%v\n", sumDisk)
+	}
 	return
 }
 
-// the idea is to balance the BW of disks, the ones with higher BW
-// should read more blocks, vice versa.
-func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+// the default scheme: for each stripe, read the fastest k blocks,
+// the corresponding disk of which has the largest bandwidth
+func (e *Erasure) findFastestKScheme(diskFailList *map[int]bool) (
+	fastestKScheme [][]int) {
+	stripeNum := len(e.Stripes)
+	failStripeSet := &IntSet{}
+	fastestKScheme = make([][]int, stripeNum)
+	maxLoad := 0
+	sumDisk := make([]int, e.DiskNum)
+	sumLoad := 0
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		for i := 0; i < e.K+e.M; i++ {
+			if mapExist(*diskFailList, stripe.Dist[i]) {
+				failStripeSet.Insert(s)
+				break
+			}
+		}
+	}
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		if failStripeSet.Exist(s) {
+			diskVec := make([]int, 0)
+			for i := 0; i < e.K+e.M; i++ {
+				diskId := stripe.Dist[i]
+				if !mapExist(*diskFailList, diskId) {
+					diskVec = append(diskVec, diskId)
+				}
+			}
+			sort.Slice(diskVec, func(i, j int) bool {
+				return e.diskInfos[i].read_bw > e.diskInfos[j].read_bw
+			})
+			for j := 0; j < e.K; j++ {
+				sumDisk[diskVec[j]]++
+				sumLoad++
+				maxLoad = maxInt(maxLoad, sumDisk[diskVec[j]])
+			}
+			fastestKScheme[s] = diskVec[:e.K]
+		} else {
+			fastestKScheme[s] = stripe.Dist
+		}
+	}
+	if !e.Quiet {
+		fmt.Printf("---------------FSR-FK Algorithm--------------")
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("disk loads:\n%v\n", sumDisk)
+	}
+	return
+}
+
+// for each failed stripe, randomly pick up k blocks
+func (e *Erasure) findRandomScheme(diskFailList *map[int]bool) (
+	randomScheme [][]int) {
+	stripeNum := len(e.Stripes)
+	failStripeSet := &IntSet{}
+	randomScheme = make([][]int, stripeNum)
+	maxLoad := 0
+	sumDisk := make([]int, e.DiskNum)
+	sumLoad := 0
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		for i := 0; i < e.K+e.M; i++ {
+			if mapExist(*diskFailList, stripe.Dist[i]) {
+				failStripeSet.Insert(s)
+				break
+			}
+		}
+	}
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		if failStripeSet.Exist(s) {
+			diskVec := make([]int, 0)
+			for i := 0; i < e.K+e.M; i++ {
+				diskId := stripe.Dist[i]
+				if !mapExist(*diskFailList, diskId) {
+					diskVec = append(diskVec, diskId)
+				}
+			}
+			rand.Shuffle(len(diskVec), func(i, j int) {
+				diskVec[i], diskVec[j] = diskVec[j], diskVec[i]
+			})
+			for j := 0; j < e.K; j++ {
+				sumDisk[diskVec[j]]++
+				sumLoad++
+				maxLoad = maxInt(maxLoad, sumDisk[diskVec[j]])
+			}
+			randomScheme[s] = diskVec[:e.K]
+		} else {
+			randomScheme[s] = stripe.Dist
+		}
+	}
+	if !e.Quiet {
+		fmt.Printf("---------------FSR-R Algorithm--------------")
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("disk loads:\n%v\n", sumDisk)
+	}
+	return
+}
+
+func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
+	balanceScheme [][]int) {
+	stripeNum := len(e.Stripes)
+	failStripeNum := 0
+	failStripeSet := &IntSet{}
+	diskLoads := make([]int, e.DiskNum)
+	diskDict := make([]IntSet, e.DiskNum)
+	balanceScheme = make([][]int, stripeNum)
+	stripeRedu := make(map[int]int)
+	available := 0
+	for s := 0; s < stripeNum; s++ {
+		flag := true
+		failBlk := 0
+		stripe := e.Stripes[s]
+		for i := 0; i < e.K+e.M; i++ {
+			if mapExist(*diskFailList, stripe.Dist[i]) {
+				if _, ok := stripeRedu[s]; ok {
+					stripeRedu[s]--
+				} else {
+					stripeRedu[s] = e.M - 1
+				}
+				failBlk++
+				flag = false
+			} else {
+				diskLoads[stripe.Dist[i]]++
+				diskDict[stripe.Dist[i]].Insert(s)
+			}
+
+		}
+		if failBlk > 0 {
+			available += (e.M - failBlk)
+		}
+		if !flag {
+			failStripeNum += 1
+			failStripeSet.Insert(s)
+		}
+	}
+	failStripeVec := []int{}
+	for failStripe := range *failStripeSet {
+		failStripeVec = append(failStripeVec, failStripe)
+	}
+	maxload_idx := e.DiskNum - 1
+	failReduList := &IntSet{}
+	maxReduVec := &IntSet{}
+	last_available := 0
+	for available > 0 {
+		//we obtain current load set for each disk and sort in descending order
+		tempDiskLoad := make([]int, e.DiskNum)
+		copy(tempDiskLoad, diskLoads)
+		sort.Slice(tempDiskLoad, func(i, j int) bool {
+			return e.diskMetric(tempDiskLoad[i], i) <
+				e.diskMetric(tempDiskLoad[j], j)
+		})
+		curMaxLoad := tempDiskLoad[maxload_idx]
+		maxRedu := 0
+		maxReduVec.Clear()
+		for d := 0; d < e.DiskNum; d++ {
+			if !mapExist(*diskFailList, d) && !failReduList.Exist(d) &&
+				diskLoads[d] == curMaxLoad {
+				reduNum := len(diskDict[d])
+				if reduNum > maxRedu {
+					maxReduVec.Clear()
+					maxReduVec.Insert(d)
+					maxRedu = reduNum
+				} else if reduNum == maxRedu {
+					maxReduVec.Insert(d)
+				}
+			}
+
+		}
+		if maxReduVec.Empty() {
+			maxload_idx--
+			continue
+		}
+		//if current maximally loaded disk are fully reduced
+		//we don't have to judge whether the current maxmimal load is accessible
+		isMaxReducible := false
+		for j := range *maxReduVec {
+			for k := range diskDict[j] {
+				if stripeRedu[k] > 0 {
+					available--
+					stripeRedu[k]--
+					diskDict[j].Erase(k)
+					diskLoads[j]--
+					isMaxReducible = true
+					break
+				}
+				if isMaxReducible {
+					break
+				}
+			}
+		}
+		//if current maximally loaded disk are fully reduced
+		//He could borrow some money from previously the richest relatives, for illustration
+		if !isMaxReducible {
+			for j := range *maxReduVec {
+				for s := range *failStripeSet {
+					for n := 0; n < e.DiskNum; n++ {
+						if !failReduList.Exist(n) &&
+							!mapExist(*diskFailList, n) &&
+							!diskDict[j].Exist(s) &&
+							diskDict[n].Exist(s) &&
+							diskLoads[n] == diskLoads[j]-1 {
+
+							diskDict[n].Insert(s)
+							diskDict[j].Erase(s)
+							diskLoads[n]++
+							diskLoads[j]--
+							isMaxReducible = true
+							break
+						}
+
+					}
+					if isMaxReducible {
+						break
+					}
+				}
+				if available == last_available {
+					failReduList.Insert(j)
+				}
+				if isMaxReducible {
+					break
+				}
+			}
+		}
+		last_available = available
+	}
+	maxLoad := 0
+	sumDisk := make([]int, e.DiskNum)
+	sumLoad := 0
+
+	for s := 0; s < stripeNum; s++ {
+		stripe := e.Stripes[s]
+		if failStripeSet.Exist(s) {
+			for i := 0; i < e.K+e.M; i++ {
+				diskId := stripe.Dist[i]
+				if !mapExist(*diskFailList, diskId) && diskDict[diskId].Exist(s) {
+
+					balanceScheme[s] = append(balanceScheme[s], diskId)
+					sumDisk[diskId]++
+					maxLoad = maxInt(maxLoad, sumDisk[diskId])
+					sumLoad++
+				}
+			}
+		} else {
+			balanceScheme[s] = stripe.Dist
+		}
+	}
+	if !e.Quiet {
+		fmt.Printf("---------------FSR-B Algorithm--------------")
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("disk loads:\n%v\n", sumDisk)
+	}
+	return
+}
+
+// the idea is to select k blocks from the stripe
+func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Options) (
+	map[string]string, error) {
 	// start1 := time.Now()
 	var failDisk int = 0
 	for i := range e.diskInfos {
@@ -117,7 +424,21 @@ func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, op
 	blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 	stripeCnt := 0
 	nextStripe := 0
-	stripes := e.StripeInDisk[failDisk]
+	failStripes := e.StripeInDisk[failDisk]
+
+	var scheme [][]int
+	if options.Scheme == FIRST_K {
+		scheme = e.findFirstKScheme(&diskFailList)
+	} else if options.Scheme == FASTEST_K {
+		scheme = e.findFastestKScheme(&diskFailList)
+	} else if options.Scheme == RANDOM_K {
+		scheme = e.findRandomScheme(&diskFailList)
+	} else if options.Scheme == BALANCE_K {
+		scheme = e.findBalanceScheme(&diskFailList)
+	} else {
+		scheme = e.findFirstKScheme(&diskFailList)
+	}
+	// balanceScheme := e.findBalanceScheme(&diskFailList)
 
 	for blob := 0; blob < numBlob; blob++ {
 		if stripeCnt+e.ConStripes > stripeNum {
@@ -129,17 +450,33 @@ func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, op
 		for s := 0; s < nextStripe; s++ {
 			s := s
 			stripeNo := stripeCnt + s
-			eg.Go(func() error {
+			// eg.Go(
+			func() error {
 				// s := s
-				spId := stripes[stripeNo]
+				spId := failStripes[stripeNo]
 				spInfo := e.Stripes[spId]
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
 				// get dist and blockToOffset by stripeNo
 				dist := spInfo.Dist
+
 				blockToOffset := spInfo.BlockToOffset
-				// fmt.Println(spId, dist, blockToOffset)
-				// read blocks in parallel
+				tempShard := make([]byte, e.BlockSize)
+				// get decodeMatrix of each stripe
+				invalidIndice := -1
+				for i, blk := range dist {
+					if blk == failDisk {
+						invalidIndice = i
+						break
+					}
+				}
+				invalidIndices := []int{invalidIndice}
+				// invalidIndices = append(invalidIndices, invalidIndice)
+				// get the decoded matrix of failed vector
+				decodeMatrix, err := e.enc.GetDecodeMatrix(invalidIndices)
+				if err != nil {
+					return err
+				}
 				for i := 0; i < e.K+e.M; i++ {
 					i := i
 					diskId := dist[i]
@@ -170,7 +507,13 @@ func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, op
 					return err
 				}
 				if !ok {
-					err = e.enc.ReconstructWithList(splitData, &diskFailList, &(dist), options.Degrade)
+					tempShard, err = e.enc.RecoverWithSomeShards(
+						decodeMatrix,
+						blobBuf,
+						scheme[s],
+						invalidIndice,
+						tempShard,
+					)
 					if err != nil {
 						return err
 					}
@@ -181,7 +524,7 @@ func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, op
 					diskId := dist[i]
 					if diskId == failDisk {
 						writeOffset := blockToOffset[i]
-						_, err := rfs.WriteAt(splitData[i], int64(writeOffset)*e.BlockSize)
+						_, err := rfs.WriteAt(tempShard, int64(writeOffset)*e.BlockSize)
 						if err != nil {
 							return err
 						}
@@ -195,7 +538,7 @@ func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, op
 					}
 				}
 				return nil
-			})
+			}()
 		}
 		if err := eg.Wait(); err != nil {
 			return nil, err
@@ -204,11 +547,7 @@ func (e *Erasure) FullStripeRecoverBalanced(fileName string, slowLatency int, op
 		stripeCnt += nextStripe
 	}
 
-	// fmt.Println("second phase costs: ", time.Since(start2).Seconds())
-
-	// start3 := time.Now()
 	//err = e.updateDiskPath(replaceMap)
-	// fmt.Println("third phase costs: ", time.Since(start3).Seconds())
 	// if err != nil {
 	// 	return nil, err
 	// }

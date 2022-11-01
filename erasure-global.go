@@ -21,6 +21,7 @@ import (
 // 	filenum int
 // }
 
+// below units are declared as  GiB
 type MemUsage struct {
 	Used      int64
 	Free      int64
@@ -28,6 +29,7 @@ type MemUsage struct {
 	Preserved int64
 }
 
+// below units are declared as the same of blocksize
 type DiskUsage struct {
 	Size      int64
 	Used      int64
@@ -35,6 +37,7 @@ type DiskUsage struct {
 	Preserved int64
 }
 
+// below units are declared as the same of blocksize
 type StorageUsage struct {
 	Size      int64
 	Used      int64

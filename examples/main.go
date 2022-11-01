@@ -175,6 +175,62 @@ func main() {
 			slowLatency,
 			&hdpsr.Options{Scheme: hdpsr.RANDOM})
 		failOnErr(mode, err)
+	case "fsr-b_1K":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{Scheme: hdpsr.FIRST_K})
+		failOnErr(mode, err)
+	case "fsr-b_FK":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{Scheme: hdpsr.FASTEST_K})
+		failOnErr(mode, err)
+	case "fsr-b_R":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{Scheme: hdpsr.RANDOM_K})
+		failOnErr(mode, err)
+	case "fsr-b_B":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{Scheme: hdpsr.BALANCE_K})
+		failOnErr(mode, err)
 	case "mfsr":
 		// recover with stripe
 		err = erasure.ReadConfig()

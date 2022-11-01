@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -376,6 +377,10 @@ func execShell(command string) (string, error) {
 	return retstr, nil
 }
 
+func mapExist(mp map[int]bool, key int) (ret bool) {
+	_, ret = mp[key]
+	return
+}
 func parsePartition(partInfo string) (string, error) {
 	if len(partInfo) == 0 {
 		return "", errPartInfoNotFound
@@ -547,4 +552,11 @@ func getMemUsage() (total int64, used int64, free int64) {
 		log.Fatal(err)
 	}
 	return
+}
+
+func getVariableType(variable interface{}) string {
+	return reflect.TypeOf(variable).String()
+}
+func getVariableValue(variable interface{}) string {
+	return reflect.ValueOf(variable).String()
 }

@@ -140,7 +140,7 @@ func (e *Erasure) EncodeFile(filename string) (*fileInfo, error) {
 					e.mu.Unlock()
 					erg.Go(func() error {
 						du := e.diskInfos[diskId].diskUsage
-						if du.Avail-du.Preserved < e.BlockSize {
+						if du.Avail-du.Preserved < 1 {
 							return fmt.Errorf("%s disk space insufficient for holding one block",
 								e.diskInfos[diskId].blkdev)
 						}

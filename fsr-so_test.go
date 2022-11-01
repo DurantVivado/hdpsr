@@ -31,10 +31,10 @@ func TestGetMinimalTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testEC.InitSystem(true)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// err = testEC.InitSystem(true)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 	err = testEC.ReadConfig()
 	if err != nil {
 		t.Fatal(err)
@@ -107,10 +107,14 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testEC.InitSystem(true)
+	err = testEC.ReadDiskInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
+	// err = testEC.InitSystem(true)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 	err = testEC.ReadConfig()
 	if err != nil {
 		t.Fatal(err)
@@ -140,25 +144,28 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 		Mode:     "diskFail",
 		FailDisk: "0",
 	})
-	start := time.Now()
-	rm, err := testEC.FullStripeRecoverWithOrder(
-		fileName,
-		slowLatency,
-		&Options{Scheme: RANDOM})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("Scheme CONTINOUS costs: ", time.Since(start))
-	for old, new := range rm {
-		oldPath := filepath.Join(old, fileName, "BLOB")
-		newPath := filepath.Join(new, fileName, "BLOB")
-		if ok, err := checkFileIfSame(newPath, oldPath); !ok && err != nil {
-			t.Fatal(err)
-		} else if err != nil {
+	schemes := []int{CONTINUOUS, GREEDY, RANDOM}
+	for _, scheme := range schemes {
+		start := time.Now()
+		rm, err := testEC.FullStripeRecoverWithOrder(
+			fileName,
+			slowLatency,
+			&Options{Scheme: scheme})
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {
-		t.Error(err)
+		fmt.Printf("Scheme %d costs: %v\n", scheme, time.Since(start))
+		for old, new := range rm {
+			oldPath := filepath.Join(old, fileName, "BLOB")
+			newPath := filepath.Join(new, fileName, "BLOB")
+			if ok, err := checkFileIfSame(newPath, oldPath); !ok && err == nil {
+				t.Fatal(err)
+			} else if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {
+			t.Error(err)
+		}
 	}
 }

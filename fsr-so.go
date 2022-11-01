@@ -3,6 +3,7 @@ package hdpsr
 import (
 	"container/heap"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -270,6 +271,8 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	} else if options.Scheme == RANDOM {
 		log.Println("FSR-SO_r")
 		stripeOrder, minTime = e.getMinimalTimeRand(stripeRepairTime)
+	} else {
+		return nil, fmt.Errorf("unknown scheme: %d", options.Scheme)
 	}
 	if !e.Quiet {
 		log.Printf("minTime: %.3f s\n", minTime)

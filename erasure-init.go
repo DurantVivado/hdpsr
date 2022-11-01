@@ -594,13 +594,26 @@ func (e *Erasure) ReadDiskLatency() error {
 }
 
 func (e *Erasure) PrintDiskInfo() {
-	fmt.Println("----------------disk info-----------------")
+	fmt.Println("[Disk Info]")
 	for _, disk := range e.diskInfos {
-		fmt.Printf(" %-20s:%20d\n", "disk id", disk.diskId)
-		fmt.Printf(" %-20s:%20s\n", "disk mountpath", disk.mntPath)
-		fmt.Printf(" %-20s:%20s\n", "disk blkdev", disk.blkdev)
-		fmt.Printf(" %-20s:%20f\n", "disk read_bw", disk.read_bw)
-		fmt.Printf(" %-20s:%20f\n", "disk latency", disk.latency)
+		fmt.Printf(" %-20s:%20d\n", "id", disk.diskId)
+		fmt.Printf(" %-20s:%20v\n", "availability", disk.available)
+		fmt.Printf(" %-20s:%20s\n", "mountpath", disk.mntPath)
+		fmt.Printf(" %-20s:%20s\n", "blkdev", disk.blkdev)
+		fmt.Printf(" %-20s:%20f\n", "read_bw", disk.read_bw)
+		fmt.Printf(" %-20s:%20f\n", "latency", disk.latency)
 		fmt.Println("------------------------------------------")
+	}
+}
+
+func (e *Erasure) PrintDiskUsage() {
+	fmt.Println("[Disk Usage (in `BlockSize`)]:")
+	fmt.Printf(" %-20s%-20s%-20s%-20s\n", "Dev", "Size", "Used", "Avail")
+	for _, disk := range e.diskInfos {
+		fmt.Printf(" %-20s%-20d%-20d%-20d\n",
+			disk.blkdev,
+			disk.diskUsage.Size,
+			disk.diskUsage.Used,
+			disk.diskUsage.Avail)
 	}
 }

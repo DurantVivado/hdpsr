@@ -62,24 +62,24 @@ Here we elaborate the steps as following, in dir `./examples`:
 go build -o main ./main.go  
 ```
 
-1. New a file named `.hdr.disks.path` in `./examples`, list the path of your local disks, e.g.,
+1. New a file named `.hdr.disks.path` in `./examples`, list the mounted path of your local disks (in other words, your disks should be formatted and mounted on local paths), e.g.,
 ```
-/home/server1/data/data1
-/home/server1/data/data2
-/home/server1/data/data3
-/home/server1/data/data4
-/home/server1/data/data5
-/home/server1/data/data6
-/home/server1/data/data7
-/home/server1/data/data8
-/home/server1/data/data9
-/home/server1/data/data10
-/home/server1/data/data11
-/home/server1/data/data12
-/home/server1/data/data13
-/home/server1/data/data14
-/home/server1/data/data15
-/home/server1/data/data16
+/mnt/disk1
+/mnt/disk2
+/mnt/disk3
+/mnt/disk4
+/mnt/disk5
+/mnt/disk6
+/mnt/disk7
+/mnt/disk8
+/mnt/disk9
+/mnt/disk10
+/mnt/disk11
+/mnt/disk12
+/mnt/disk13
+/mnt/disk14
+/mnt/disk15
+/mnt/disk16
 ```
 Please remind that carriage return (CR), line feed (LF) are not allowed in the last line.
 
@@ -167,6 +167,13 @@ the command-line parameters of `./examples/main.go` are listed as below.
 |failMode(fmd)|simulate [diskFail] or [bitRot] mode"|diskFail|
 |failNum(fn)|simulate multiple disk failure, provides the fail number of disks|0|
 |conStripes(cs)|how many stripes are allowed to encode/decode concurrently|100|
-|quiet(q)|whether or not to mute outputs in terminal|false|
+|quiet(q)|whether to mute for outputs|false|
 |log(l)|whether or not to write the repair time to a file called `log.txt`|false|
+|diskbw|whether to provide a `diskBW` file or measure on-the-fly disk bandwidth|false|
 
+P.S.
+user can provide a `diskBW` file, containing the disk bandwidh in the following form:
+```
+<read_bandwidth> <write_bandwidth> <random_read_bandwidth> <random_write_bandwidth>
+```
+, where the lines are consistent with the mounted paths in `.hdr.disks.path`.
