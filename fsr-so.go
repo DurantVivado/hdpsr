@@ -2,7 +2,6 @@ package hdpsr
 
 import (
 	"container/heap"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -162,56 +162,58 @@ func (e *Erasure) getMinimalTimeRand(stripeRepairTime []float64) (
 func (e *Erasure) FullStripeRecoverWithOrder(
 	fileName string, slowLatency int, options *Options) (
 	map[string]string, error) {
-	var failDisk int = 0
-	for i := range e.diskInfos {
-		if !e.diskInfos[i].available {
-			failDisk = i
-			break
-		}
-	}
-	if !e.Quiet {
-		log.Printf("Start recovering with stripe, totally %d stripes need recovery",
-			len(e.StripeInDisk[failDisk]))
-	}
-	baseName := filepath.Base(fileName)
-	//the failed disks are mapped to backup disks
-	replaceMap := make(map[int]int)
+	baseFileName := filepath.Base(fileName)
 	ReplaceMap := make(map[string]string)
-	diskFailList := make(map[int]bool, 1)
+	replaceMap := make(map[int]int)
+	intFi, ok := e.fileMap.Load(baseFileName)
+	if !ok {
+		return nil, errFileNotFound
+	}
+	fi := intFi.(*fileInfo)
 
-	ReplaceMap[e.diskInfos[failDisk].mntPath] = e.diskInfos[e.DiskNum].mntPath
-	replaceMap[failDisk] = e.DiskNum
-	diskFailList[failDisk] = true
-
-	// start recovering: recover all stripes in this disk
-
-	// open all disks
+	fileSize := fi.FileSize
+	stripeNum := int(ceilFracInt64(fileSize, e.dataStripeSize))
+	dist := fi.Distribution
+	//first we check the number of alive disks
+	// to judge if any part need reconstruction
+	alive := int32(0)
+	failNum := int32(0)
 	ifs := make([]*os.File, e.DiskNum)
 	erg := new(errgroup.Group)
-	// alive := int32(0)
-	for i, disk := range e.diskInfos[0:e.DiskNum] {
+
+	for i, disk := range e.diskInfos[:e.DiskNum] {
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.mntPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseFileName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
-				ifs[i] = nil
-				return nil
+				atomic.AddInt32(&failNum, 1)
+				return &diskError{disk.mntPath, " available flag set false"}
 			}
 			ifs[i], err = os.Open(blobPath)
 			if err != nil {
+				disk.available = false
 				return err
 			}
 
 			disk.available = true
-			// atomic.AddInt32(&alive, 1)
+			atomic.AddInt32(&alive, 1)
 			return nil
 		})
 	}
 	if err := erg.Wait(); err != nil {
 		if !e.Quiet {
-			log.Printf("read failed %s", err.Error())
+			log.Printf("%s", err.Error())
+		}
+	}
+	j := e.DiskNum
+	// think what if backup also breaks down, future stuff
+	for i := 0; i < e.DiskNum; i++ {
+		if !e.diskInfos[i].available {
+			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
+			replaceMap[i] = j
+			j++
 		}
 	}
 	defer func() {
@@ -221,45 +223,71 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 			}
 		}
 	}()
-	if !e.Quiet {
-		log.Println("start reconstructing blocks")
+	if int(alive) < e.K {
+		//the disk renders inrecoverable
+		return nil, errTooFewDisksAlive
 	}
 
-	// create BLOB in the backup disk
-	disk := e.diskInfos[e.DiskNum]
-	folderPath := filepath.Join(disk.mntPath, baseName)
-	blobPath := filepath.Join(folderPath, "BLOB")
-	if e.Override {
-		if err := os.RemoveAll(folderPath); err != nil {
-			return nil, err
+	//the failure number doesn't exceed the fault tolerance
+	//but unluckily we don't have enough backups!
+	if int(failNum) > len(e.diskInfos)-e.DiskNum {
+		return nil, errNotEnoughBackupForRecovery
+	}
+	rfs := make([]*os.File, failNum)
+	//open restore path IOs
+	for i, disk := range e.diskInfos[e.DiskNum : e.DiskNum+int(failNum)] {
+		i := i
+		disk := disk
+		erg.Go(func() error {
+			folderPath := filepath.Join(disk.mntPath, baseFileName)
+			blobPath := filepath.Join(folderPath, "BLOB")
+			if e.Override {
+				if err := os.RemoveAll(folderPath); err != nil {
+					return err
+				}
+			}
+			if err := os.Mkdir(folderPath, 0666); err != nil {
+				return errDataDirExist
+			}
+			rfs[i], err = os.OpenFile(blobPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+	}
+	if err := erg.Wait(); err != nil {
+		if !e.Quiet {
+			log.Printf("create BLOB failed %s", err.Error())
 		}
 	}
-	if err := os.Mkdir(folderPath, 0777); err != nil {
-		return nil, errDataDirExist
+	defer func() {
+		for i := 0; i < int(failNum); i++ {
+			if rfs[i] != nil {
+				rfs[i].Close()
+			}
+		}
+	}()
+	if int(alive) == e.DiskNum {
+		if !e.Quiet {
+			log.Println("start reading blocks")
+		}
+	} else {
+		if !e.Quiet {
+			log.Println("start reconstructing blocks")
+		}
 	}
-	rfs, err := os.OpenFile(blobPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-	if err != nil {
-		return nil, err
-	}
-	defer rfs.Close()
-	// read stripes every blob in parallel
-	// read blocks every stripe in parallel
-	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * GiB) / int(e.allStripeSize)
+	//Since the file is striped, we have to reconstruct each stripe
+	//for each stripe we rejoin the data
+	e.ConStripes = e.MemSize * GiB / int(e.dataStripeSize)
 	e.ConStripes = minInt(e.ConStripes, stripeNum)
-	// fmt.Println("Inter-stripe parallelism:", e.ConStripes)
-	if e.ConStripes == 0 {
-		return nil, errors.New("memory size is too small")
-	}
-	// numBlob := ceilFracInt(stripeNum, e.ConStripes)
-	// blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 	stripeCnt := 0
-	// stripes := e.StripeInDisk[failDisk]
 
-	stripeRepairTime := e.getStripeRepairtime(slowLatency)
-	// if !e.Quiet {
-	// fmt.Printf("stripeRepairTime: %v\n", stripeRepairTime)
-	// }
+	stripeRepairTime := e.getStripeRepairtime(dist, slowLatency)
+	if !e.Quiet {
+		fmt.Printf("stripeRepairTime: %v\n", stripeRepairTime)
+	}
 	var stripeOrder [][]int
 	var minTime float64
 	if options.Scheme == CONTINUOUS {
@@ -293,24 +321,21 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 			stripeCnt++
 			c := c
 			func() error {
-				// spId := stripes[stripeNo]
-				spInfo := e.Stripes[stripeNo]
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
-				// get dist and blockToOffset by stripeNo
-				dist := spInfo.Dist
-				blockToOffset := spInfo.BlockToOffset
-				// fmt.Println(spId, dist, blockToOffset)
 				// read blocks in parallel
+				failList := make(map[int]bool)
 				for i := 0; i < e.K+e.M; i++ {
 					i := i
-					diskId := dist[i]
+					diskId := dist[stripeNo][i]
 					disk := e.diskInfos[diskId]
-					if !disk.available {
+					blkStat := fi.blockInfos[stripeNo][i]
+					if !disk.available || blkStat.bstat != blkOK {
+						failList[diskId] = true
 						continue
 					}
 					erg.Go(func() error {
-						offset := blockToOffset[i]
+						offset := fi.blockToOffset[stripeNo][i]
 						_, err := ifs[diskId].ReadAt(blobBuf[c][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
 							int64(offset)*e.BlockSize)
 						if err != nil && err != io.EOF {
@@ -332,29 +357,43 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 					return err
 				}
 				if !ok {
-					err = e.enc.ReconstructWithList(splitData, &diskFailList, &(dist), options.Degrade)
+					err = e.enc.ReconstructWithList(splitData,
+						&failList,
+						&(dist[stripeNo]),
+						options.Degrade)
 					if err != nil {
 						return err
 					}
 				}
 				//write the Blob to restore paths
+				egp := e.errgroupPool.Get().(*errgroup.Group)
+				defer e.errgroupPool.Put(egp)
 				for i := 0; i < e.K+e.M; i++ {
 					i := i
-					diskId := dist[i]
-					if diskId == failDisk {
-						writeOffset := blockToOffset[i]
-						_, err := rfs.WriteAt(splitData[i], int64(writeOffset)*e.BlockSize)
-						if err != nil {
-							return err
-						}
-						if e.diskInfos[diskId].ifMetaExist {
-							newMetapath := filepath.Join(e.diskInfos[e.DiskNum].mntPath, "META")
-							if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+					diskId := dist[stripeNo][i]
+					if v, ok := replaceMap[diskId]; ok {
+						restoreId := v - e.DiskNum
+						writeOffset := fi.blockToOffset[stripeNo][i]
+						egp.Go(func() error {
+							_, err := rfs[restoreId].WriteAt(splitData[i],
+								int64(writeOffset)*e.BlockSize)
+							if err != nil {
 								return err
 							}
-						}
-						break
+							if e.diskInfos[diskId].ifMetaExist {
+								newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
+								if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+									return err
+								}
+							}
+							return nil
+
+						})
+
 					}
+				}
+				if err := egp.Wait(); err != nil {
+					return err
 				}
 				return nil
 			}()
@@ -375,18 +414,15 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	return ReplaceMap, nil
 }
 
-func (e *Erasure) getStripeRepairtime(slowLatency int) []float64 {
+func (e *Erasure) getStripeRepairtime(dist [][]int, slowLatency int) []float64 {
 	stripeRepairTime := make([]float64, len(e.Stripes))
-	for i := range e.Stripes {
-		stripe := e.Stripes[i]
-		fail := 0
+	stripeNum := len(dist)
+	for s := 0; s < stripeNum; s++ {
 		maxTime := float64(0)
 		blkTime := float64(0)
-		for j := 0; j < e.K; j++ {
-			diskId := stripe.Dist[j+fail]
+		for j := 0; j < e.K+e.M; j++ {
+			diskId := dist[s][j]
 			if !e.diskInfos[diskId].available {
-				fail++
-				j--
 				continue
 			}
 			if e.diskInfos[diskId].slow {
@@ -396,7 +432,7 @@ func (e *Erasure) getStripeRepairtime(slowLatency int) []float64 {
 			}
 			maxTime = maxFloat64(maxTime, blkTime)
 		}
-		stripeRepairTime[i] = maxTime
+		stripeRepairTime[s] = maxTime
 		// fmt.Printf("i:%d, time:%f\n", i, stripeRepairTime[i])
 	}
 	return stripeRepairTime

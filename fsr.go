@@ -204,7 +204,7 @@ func (e *Erasure) FullStripeRecover(fileName string, slowLatency int, options *O
 	// 	return nil, err
 	// }
 	if !e.Quiet {
-		log.Println("Finish recovering")
+		log.Println("Finish recovering using FSR")
 	}
 	return ReplaceMap, nil
 }

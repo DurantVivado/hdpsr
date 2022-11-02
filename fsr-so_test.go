@@ -67,7 +67,14 @@ func TestGetMinimalTime(t *testing.T) {
 	// stripeRepairTime := genRandArrFloat64(StripeNum, 10, 0)
 	// fmt.Println("Stripe Repair Index:", []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 	slowLatency := 0
-	stripeRepairTime := testEC.getStripeRepairtime(slowLatency)
+	intFi, ok := testEC.fileMap.Load(inpath)
+	if !ok {
+		t.Error("file not found in fileMap")
+	}
+	fi := intFi.(*fileInfo)
+
+	dist := fi.Distribution
+	stripeRepairTime := testEC.getStripeRepairtime(dist, slowLatency)
 	fmt.Println("Stripe Repair Time :", stripeRepairTime)
 	// var stripeOrder [][]int
 	var minTime float64
