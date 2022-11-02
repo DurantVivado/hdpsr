@@ -139,14 +139,14 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	// defer delTempDir()
-	_, err := testEC.EncodeFile(inpath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = testEC.WriteConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// _, err := testEC.EncodeFile(inpath)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// err = testEC.WriteConfig()
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 	testEC.Destroy(&SimOptions{
 		Mode:     "diskFail",
 		FailDisk: "0",
@@ -166,13 +166,13 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 			oldPath := filepath.Join(old, fileName, "BLOB")
 			newPath := filepath.Join(new, fileName, "BLOB")
 			if ok, err := checkFileIfSame(newPath, oldPath); !ok && err == nil {
-				t.Fatal(err)
+				t.Error(err)
 			} else if err != nil {
 				t.Fatal(err)
 			}
 		}
 		if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
 }

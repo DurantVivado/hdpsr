@@ -128,7 +128,7 @@ func main() {
 			FailDisk: failDisk,
 			FileName: filePath,
 		})
-		_, err = erasure.FullStripeRecover(filePath, slowLatency, &hdpsr.Options{})
+		_, err = erasure.FullStripeRecover(filePath, &hdpsr.Options{})
 		failOnErr(mode, err)
 	case "fsr-so_c":
 		// recover with stripe

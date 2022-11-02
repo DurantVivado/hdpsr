@@ -46,7 +46,7 @@ func TestFullStripeRecover(t *testing.T) {
 	fileSize := int64(1 * GiB)
 	fileName := fmt.Sprintf("temp-%d", fileSize)
 	inpath := filepath.Join("input", fileName)
-	slowLatency := 0
+	// slowLatency := 0
 	err = generateRandomFileBySize(inpath, fileSize)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,6 @@ func TestFullStripeRecover(t *testing.T) {
 	start := time.Now()
 	rm, err := testEC.FullStripeRecover(
 		fileName,
-		slowLatency,
 		&Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -77,9 +76,9 @@ func TestFullStripeRecover(t *testing.T) {
 		oldPath := filepath.Join(old, fileName, "BLOB")
 		newPath := filepath.Join(new, fileName, "BLOB")
 		if ok, err := checkFileIfSame(newPath, oldPath); !ok && err == nil {
-			t.Fatal(err)
+			t.Error(err)
 		} else if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}
 	if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {

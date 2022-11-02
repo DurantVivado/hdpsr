@@ -291,13 +291,10 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	var stripeOrder [][]int
 	var minTime float64
 	if options.Scheme == CONTINUOUS {
-		log.Println("FSR-SO_c")
 		stripeOrder, minTime = e.getMinimalTimeContinuous(stripeRepairTime)
 	} else if options.Scheme == GREEDY {
-		log.Println("FSR-SO_g")
 		stripeOrder, minTime = e.getMinimalTimeGreedy(stripeRepairTime)
 	} else if options.Scheme == RANDOM {
-		log.Println("FSR-SO_r")
 		stripeOrder, minTime = e.getMinimalTimeRand(stripeRepairTime)
 	} else {
 		return nil, fmt.Errorf("unknown scheme: %d", options.Scheme)
@@ -313,6 +310,9 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 		eg := e.errgroupPool.Get().(*errgroup.Group)
 		for c := 0; c < concurrency; c++ {
 			//for each slot
+			if len(stripeOrder[c]) == 0 {
+				continue
+			}
 			if len(stripeOrder[c]) == slotId[c] {
 				continue
 			}
@@ -415,7 +415,7 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 }
 
 func (e *Erasure) getStripeRepairtime(dist [][]int, slowLatency int) []float64 {
-	stripeRepairTime := make([]float64, len(e.Stripes))
+	stripeRepairTime := make([]float64, len(dist))
 	stripeNum := len(dist)
 	for s := 0; s < stripeNum; s++ {
 		maxTime := float64(0)

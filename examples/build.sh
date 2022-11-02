@@ -34,13 +34,13 @@ go build -o main ./main.go
 now=`date +%c` 
 echo -e "sh: The program started at $now."  
 #------------------------encode a file--------------------------
-mode="encode"
+mode="recover"
 if [ $mode == "recover" ]; then
 
 #---------------------------repair the file----------------------
     # recover a file
-    # methods=("fsr" "fsr-so_c" "fsr-so_g")
-    methods=("fsr-b_1K" "fsr-b_FK" "fsr-b_R" "fsr-b_B")
+    methods=("fsr" "fsr-so_c" "fsr-so_g")
+    # methods=("fsr-b_1K" "fsr-b_FK" "fsr-b_R" "fsr-b_B")
     for method in ${methods[@]};do
         echo -e "method:$method" 
         start=`date +%s%N`
