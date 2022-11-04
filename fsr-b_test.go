@@ -48,20 +48,20 @@ func TestFindBalanceScheme(t *testing.T) {
 		t.Fatal(err)
 	}
 	// defer delTempDir()
-	_, err := testEC.EncodeFile(inpath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = testEC.WriteConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// _, err := testEC.EncodeFile(inpath)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// err = testEC.WriteConfig()
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 
 	testEC.Destroy(&SimOptions{
 		Mode:     "diskFail",
 		FailDisk: "0",
 	})
-	schemes := []int{FIRST_K, FASTEST_K, RANDOM_K, BALANCE_K}
+	schemes := []int{BALANCE_K, RANDOM_K, FASTEST_K, FIRST_K}
 	for _, scheme := range schemes {
 		start := time.Now()
 		rm, err := testEC.FullStripeRecoverBlockSelected(
@@ -78,7 +78,7 @@ func TestFindBalanceScheme(t *testing.T) {
 			oldPath := filepath.Join(old, fileName, "BLOB")
 			newPath := filepath.Join(new, fileName, "BLOB")
 			if ok, err := checkFileIfSame(newPath, oldPath); !ok && err == nil {
-				t.Fatal(err)
+				t.Error(err)
 			} else if err != nil {
 				t.Fatal(err)
 			}

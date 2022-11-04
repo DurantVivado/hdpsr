@@ -1,7 +1,6 @@
 package hdpsr
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -25,29 +25,27 @@ func (e *Erasure) diskMetric(load, disk_id int) float64 {
 }
 
 // the default scheme: for each stripe, read the first k blocks
-func (e *Erasure) findFirstKScheme(diskFailList *map[int]bool) (
+func (e *Erasure) findFirstKScheme(dist [][]int, replaceMap map[int]int) (
 	firstKScheme [][]int) {
-	stripeNum := len(e.Stripes)
+	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
 	firstKScheme = make([][]int, stripeNum)
 	maxLoad := 0
 	sumDisk := make([]int, e.DiskNum)
 	sumLoad := 0
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		for i := 0; i < e.K+e.M; i++ {
-			if mapExist(*diskFailList, stripe.Dist[i]) {
+			if _, ok := replaceMap[dist[s][i]]; ok {
 				failStripeSet.Insert(s)
 				break
 			}
 		}
 	}
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		if failStripeSet.Exist(s) {
 			for i := 0; i < e.K+e.M; i++ {
-				diskId := stripe.Dist[i]
-				if !mapExist(*diskFailList, diskId) {
+				diskId := dist[s][i]
+				if _, ok := replaceMap[diskId]; !ok {
 					firstKScheme[s] = append(firstKScheme[s], diskId)
 					sumDisk[diskId]++
 					maxLoad = maxInt(maxLoad, sumDisk[diskId])
@@ -58,11 +56,11 @@ func (e *Erasure) findFirstKScheme(diskFailList *map[int]bool) (
 				}
 			}
 		} else {
-			firstKScheme[s] = stripe.Dist
+			firstKScheme[s] = dist[s]
 		}
 	}
 	if !e.Quiet {
-		fmt.Printf("---------------FSR-1K Algorithm--------------")
+		fmt.Printf("---------------FSR-B_1K Algorithm--------------")
 		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
@@ -71,30 +69,28 @@ func (e *Erasure) findFirstKScheme(diskFailList *map[int]bool) (
 
 // the default scheme: for each stripe, read the fastest k blocks,
 // the corresponding disk of which has the largest bandwidth
-func (e *Erasure) findFastestKScheme(diskFailList *map[int]bool) (
+func (e *Erasure) findFastestKScheme(dist [][]int, replaceMap map[int]int) (
 	fastestKScheme [][]int) {
-	stripeNum := len(e.Stripes)
+	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
 	fastestKScheme = make([][]int, stripeNum)
 	maxLoad := 0
 	sumDisk := make([]int, e.DiskNum)
 	sumLoad := 0
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		for i := 0; i < e.K+e.M; i++ {
-			if mapExist(*diskFailList, stripe.Dist[i]) {
+			if _, ok := replaceMap[dist[s][i]]; ok {
 				failStripeSet.Insert(s)
 				break
 			}
 		}
 	}
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		if failStripeSet.Exist(s) {
 			diskVec := make([]int, 0)
 			for i := 0; i < e.K+e.M; i++ {
-				diskId := stripe.Dist[i]
-				if !mapExist(*diskFailList, diskId) {
+				diskId := dist[s][i]
+				if _, ok := replaceMap[diskId]; !ok {
 					diskVec = append(diskVec, diskId)
 				}
 			}
@@ -108,11 +104,11 @@ func (e *Erasure) findFastestKScheme(diskFailList *map[int]bool) (
 			}
 			fastestKScheme[s] = diskVec[:e.K]
 		} else {
-			fastestKScheme[s] = stripe.Dist
+			fastestKScheme[s] = dist[s]
 		}
 	}
 	if !e.Quiet {
-		fmt.Printf("---------------FSR-FK Algorithm--------------")
+		fmt.Printf("---------------FSR-B_FK Algorithm--------------")
 		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
@@ -120,30 +116,28 @@ func (e *Erasure) findFastestKScheme(diskFailList *map[int]bool) (
 }
 
 // for each failed stripe, randomly pick up k blocks
-func (e *Erasure) findRandomScheme(diskFailList *map[int]bool) (
+func (e *Erasure) findRandomScheme(dist [][]int, replaceMap map[int]int) (
 	randomScheme [][]int) {
-	stripeNum := len(e.Stripes)
+	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
 	randomScheme = make([][]int, stripeNum)
 	maxLoad := 0
 	sumDisk := make([]int, e.DiskNum)
 	sumLoad := 0
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		for i := 0; i < e.K+e.M; i++ {
-			if mapExist(*diskFailList, stripe.Dist[i]) {
+			if _, ok := replaceMap[dist[s][i]]; ok {
 				failStripeSet.Insert(s)
 				break
 			}
 		}
 	}
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		if failStripeSet.Exist(s) {
 			diskVec := make([]int, 0)
 			for i := 0; i < e.K+e.M; i++ {
-				diskId := stripe.Dist[i]
-				if !mapExist(*diskFailList, diskId) {
+				diskId := dist[s][i]
+				if _, ok := replaceMap[diskId]; !ok {
 					diskVec = append(diskVec, diskId)
 				}
 			}
@@ -157,33 +151,35 @@ func (e *Erasure) findRandomScheme(diskFailList *map[int]bool) (
 			}
 			randomScheme[s] = diskVec[:e.K]
 		} else {
-			randomScheme[s] = stripe.Dist
+			randomScheme[s] = dist[s]
 		}
 	}
 	if !e.Quiet {
-		fmt.Printf("---------------FSR-R Algorithm--------------")
+		fmt.Printf("---------------FSR-B_R Algorithm--------------")
 		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	return
 }
 
-func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
+func (e *Erasure) findBalanceScheme(dist [][]int, replaceMap map[int]int) (
 	balanceScheme [][]int) {
-	stripeNum := len(e.Stripes)
+	stripeNum := len(dist)
+	maxLoad := 0
+	sumLoad := 0
 	failStripeNum := 0
 	failStripeSet := &IntSet{}
+	balanceScheme = make([][]int, stripeNum)
+	sumDisk := make([]int, e.DiskNum)
+	stripeRedu := make(map[int]int)
 	diskLoads := make([]int, e.DiskNum)
 	diskDict := make([]IntSet, e.DiskNum)
-	balanceScheme = make([][]int, stripeNum)
-	stripeRedu := make(map[int]int)
 	available := 0
 	for s := 0; s < stripeNum; s++ {
 		flag := true
 		failBlk := 0
-		stripe := e.Stripes[s]
 		for i := 0; i < e.K+e.M; i++ {
-			if mapExist(*diskFailList, stripe.Dist[i]) {
+			if _, ok := replaceMap[dist[s][i]]; ok {
 				if _, ok := stripeRedu[s]; ok {
 					stripeRedu[s]--
 				} else {
@@ -192,8 +188,8 @@ func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
 				failBlk++
 				flag = false
 			} else {
-				diskLoads[stripe.Dist[i]]++
-				diskDict[stripe.Dist[i]].Insert(s)
+				diskLoads[dist[s][i]]++
+				diskDict[dist[s][i]].Insert(s)
 			}
 
 		}
@@ -225,7 +221,7 @@ func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
 		maxRedu := 0
 		maxReduVec.Clear()
 		for d := 0; d < e.DiskNum; d++ {
-			if !mapExist(*diskFailList, d) && !failReduList.Exist(d) &&
+			if _, ok := replaceMap[d]; !ok && !failReduList.Exist(d) &&
 				diskLoads[d] == curMaxLoad {
 				reduNum := len(diskDict[d])
 				if reduNum > maxRedu {
@@ -266,8 +262,8 @@ func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
 			for j := range *maxReduVec {
 				for s := range *failStripeSet {
 					for n := 0; n < e.DiskNum; n++ {
-						if !failReduList.Exist(n) &&
-							!mapExist(*diskFailList, n) &&
+						if _, ok := replaceMap[n]; !ok &&
+							!failReduList.Exist(n) &&
 							!diskDict[j].Exist(s) &&
 							diskDict[n].Exist(s) &&
 							diskLoads[n] == diskLoads[j]-1 {
@@ -295,16 +291,12 @@ func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
 		}
 		last_available = available
 	}
-	maxLoad := 0
-	sumDisk := make([]int, e.DiskNum)
-	sumLoad := 0
 
 	for s := 0; s < stripeNum; s++ {
-		stripe := e.Stripes[s]
 		if failStripeSet.Exist(s) {
 			for i := 0; i < e.K+e.M; i++ {
-				diskId := stripe.Dist[i]
-				if !mapExist(*diskFailList, diskId) && diskDict[diskId].Exist(s) {
+				diskId := dist[s][i]
+				if _, ok := replaceMap[diskId]; !ok && diskDict[diskId].Exist(s) {
 
 					balanceScheme[s] = append(balanceScheme[s], diskId)
 					sumDisk[diskId]++
@@ -313,11 +305,11 @@ func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
 				}
 			}
 		} else {
-			balanceScheme[s] = stripe.Dist
+			balanceScheme[s] = dist[s]
 		}
 	}
 	if !e.Quiet {
-		fmt.Printf("---------------FSR-B Algorithm--------------")
+		fmt.Printf("---------------FSR-B_B Algorithm--------------")
 		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
@@ -327,57 +319,58 @@ func (e *Erasure) findBalanceScheme(diskFailList *map[int]bool) (
 // the idea is to select k blocks from the stripe
 func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Options) (
 	map[string]string, error) {
-	// start1 := time.Now()
-	var failDisk int = 0
-	for i := range e.diskInfos {
-		if !e.diskInfos[i].available {
-			failDisk = i
-			break
-		}
-	}
-	if !e.Quiet {
-		log.Printf("Start recovering with stripe, totally %d stripes need recovery",
-			len(e.StripeInDisk[failDisk]))
-	}
-	baseName := filepath.Base(fileName)
-	//the failed disks are mapped to backup disks
-	replaceMap := make(map[int]int)
+	baseFileName := filepath.Base(fileName)
 	ReplaceMap := make(map[string]string)
-	diskFailList := make(map[int]bool, 1)
+	replaceMap := make(map[int]int)
+	intFi, ok := e.fileMap.Load(baseFileName)
+	if !ok {
+		return nil, errFileNotFound
+	}
+	fi := intFi.(*fileInfo)
 
-	ReplaceMap[e.diskInfos[failDisk].mntPath] = e.diskInfos[e.DiskNum].mntPath
-	replaceMap[failDisk] = e.DiskNum
-	diskFailList[failDisk] = true
-
-	// start recovering: recover all stripes in this disk
-
-	// open all disks
+	fileSize := fi.FileSize
+	stripeNum := int(ceilFracInt64(fileSize, e.dataStripeSize))
+	dist := fi.Distribution
+	//first we check the number of alive disks
+	// to judge if any part need reconstruction
+	alive := int32(0)
+	failNum := int32(0)
 	ifs := make([]*os.File, e.DiskNum)
 	erg := new(errgroup.Group)
-	// alive := int32(0)
-	for i, disk := range e.diskInfos[0:e.DiskNum] {
+
+	for i, disk := range e.diskInfos[:e.DiskNum] {
 		i := i
 		disk := disk
 		erg.Go(func() error {
-			folderPath := filepath.Join(disk.mntPath, baseName)
+			folderPath := filepath.Join(disk.mntPath, baseFileName)
 			blobPath := filepath.Join(folderPath, "BLOB")
 			if !disk.available {
-				ifs[i] = nil
-				return nil
+				atomic.AddInt32(&failNum, 1)
+				return &diskError{disk.mntPath, " available flag set false"}
 			}
 			ifs[i], err = os.Open(blobPath)
 			if err != nil {
+				disk.available = false
 				return err
 			}
 
 			disk.available = true
-			// atomic.AddInt32(&alive, 1)
+			atomic.AddInt32(&alive, 1)
 			return nil
 		})
 	}
 	if err := erg.Wait(); err != nil {
 		if !e.Quiet {
-			log.Printf("read failed %s", err.Error())
+			log.Printf("%s", err.Error())
+		}
+	}
+	j := e.DiskNum
+	// think what if backup also breaks down, future stuff
+	for i := 0; i < e.DiskNum; i++ {
+		if !e.diskInfos[i].available {
+			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
+			replaceMap[i] = j
+			j++
 		}
 	}
 	defer func() {
@@ -387,58 +380,82 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 			}
 		}
 	}()
-	if !e.Quiet {
-		log.Println("start reconstructing blocks")
+	if int(alive) < e.K {
+		//the disk renders inrecoverable
+		return nil, errTooFewDisksAlive
 	}
 
-	// create BLOB in the backup disk
-	disk := e.diskInfos[e.DiskNum]
-	folderPath := filepath.Join(disk.mntPath, baseName)
-	blobPath := filepath.Join(folderPath, "BLOB")
-	if e.Override {
-		if err := os.RemoveAll(folderPath); err != nil {
-			return nil, err
+	//the failure number doesn't exceed the fault tolerance
+	//but unluckily we don't have enough backups!
+	if int(failNum) > len(e.diskInfos)-e.DiskNum {
+		return nil, errNotEnoughBackupForRecovery
+	}
+	rfs := make([]*os.File, failNum)
+	//open restore path IOs
+	for i, disk := range e.diskInfos[e.DiskNum : e.DiskNum+int(failNum)] {
+		i := i
+		disk := disk
+		erg.Go(func() error {
+			folderPath := filepath.Join(disk.mntPath, baseFileName)
+			blobPath := filepath.Join(folderPath, "BLOB")
+			if e.Override {
+				if err := os.RemoveAll(folderPath); err != nil {
+					return err
+				}
+			}
+			if err := os.Mkdir(folderPath, 0666); err != nil {
+				return errDataDirExist
+			}
+			rfs[i], err = os.OpenFile(blobPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+	}
+	if err := erg.Wait(); err != nil {
+		if !e.Quiet {
+			log.Printf("create BLOB failed %s", err.Error())
 		}
 	}
-	if err := os.Mkdir(folderPath, 0777); err != nil {
-		return nil, errDataDirExist
+	defer func() {
+		for i := 0; i < int(failNum); i++ {
+			if rfs[i] != nil {
+				rfs[i].Close()
+			}
+		}
+	}()
+	if int(alive) == e.DiskNum {
+		if !e.Quiet {
+			log.Println("start reading blocks")
+		}
+	} else {
+		if !e.Quiet {
+			log.Println("start reconstructing blocks")
+		}
 	}
-	rfs, err := os.OpenFile(blobPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-	if err != nil {
-		return nil, err
-	}
-	defer rfs.Close()
-
-	// fmt.Println("first phase costs: ", time.Since(start1).Seconds())
-
-	// start2 := time.Now()
-	// read stripes every blob in parallel
-	// read blocks every stripe in parallel
-	stripeNum := len(e.StripeInDisk[failDisk])
-	e.ConStripes = (e.MemSize * GiB) / int(e.allStripeSize)
+	//Since the file is striped, we have to reconstruct each stripe
+	//for each stripe we rejoin the data
+	e.ConStripes = e.MemSize * GiB / int(e.dataStripeSize)
 	e.ConStripes = minInt(e.ConStripes, stripeNum)
-	if e.ConStripes == 0 {
-		return nil, errors.New("memory size is too small")
-	}
 	numBlob := ceilFracInt(stripeNum, e.ConStripes)
-	blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 	stripeCnt := 0
 	nextStripe := 0
-	failStripes := e.StripeInDisk[failDisk]
 
 	var scheme [][]int
 	if options.Scheme == FIRST_K {
-		scheme = e.findFirstKScheme(&diskFailList)
+		scheme = e.findFirstKScheme(dist, replaceMap)
 	} else if options.Scheme == FASTEST_K {
-		scheme = e.findFastestKScheme(&diskFailList)
+		scheme = e.findFastestKScheme(dist, replaceMap)
 	} else if options.Scheme == RANDOM_K {
-		scheme = e.findRandomScheme(&diskFailList)
+		scheme = e.findRandomScheme(dist, replaceMap)
 	} else if options.Scheme == BALANCE_K {
-		scheme = e.findBalanceScheme(&diskFailList)
+		scheme = e.findBalanceScheme(dist, replaceMap)
 	} else {
-		scheme = e.findFirstKScheme(&diskFailList)
+		scheme = e.findFirstKScheme(dist, replaceMap)
 	}
-	// balanceScheme := e.findBalanceScheme(&diskFailList)
+	blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 
 	for blob := 0; blob < numBlob; blob++ {
 		if stripeCnt+e.ConStripes > stripeNum {
@@ -452,42 +469,26 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 			stripeNo := stripeCnt + s
 			// eg.Go(
 			func() error {
-				// s := s
-				spId := failStripes[stripeNo]
-				spInfo := e.Stripes[spId]
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
 				// get dist and blockToOffset by stripeNo
-				dist := spInfo.Dist
 
-				blockToOffset := spInfo.BlockToOffset
-				tempShard := make([]byte, e.BlockSize)
-				// get decodeMatrix of each stripe
-				invalidIndice := -1
-				for i, blk := range dist {
-					if blk == failDisk {
-						invalidIndice = i
-						break
-					}
-				}
-				invalidIndices := []int{invalidIndice}
-				// invalidIndices = append(invalidIndices, invalidIndice)
-				// get the decoded matrix of failed vector
-				decodeMatrix, err := e.enc.GetDecodeMatrix(invalidIndices)
-				if err != nil {
-					return err
-				}
+				failList := make(map[int]bool)
 				for i := 0; i < e.K+e.M; i++ {
 					i := i
-					diskId := dist[i]
+					diskId := dist[stripeNo][i]
 					disk := e.diskInfos[diskId]
-					if !disk.available {
+					blkStat := fi.blockInfos[stripeNo][i]
+					if !disk.available || blkStat.bstat != blkOK {
+						failList[diskId] = true
 						continue
 					}
 					erg.Go(func() error {
-						offset := blockToOffset[i]
+						//we also need to know the block's accurate offset with respect to disk
+						offset := fi.blockToOffset[stripeNo][i]
 						_, err := ifs[diskId].ReadAt(blobBuf[s][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
 							int64(offset)*e.BlockSize)
+						// fmt.Println("Read ", n, " bytes at", i, ", block ", block)
 						if err != nil && err != io.EOF {
 							return err
 						}
@@ -507,34 +508,44 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 					return err
 				}
 				if !ok {
-					tempShard, err = e.enc.RecoverWithSomeShards(
-						decodeMatrix,
-						blobBuf,
-						scheme[s],
-						invalidIndice,
-						tempShard,
-					)
+					err = e.enc.ReconstructWithKBlocks(
+						splitData,
+						&failList,
+						&scheme[stripeNo],
+						&(dist[stripeNo]),
+						options.Degrade)
 					if err != nil {
 						return err
 					}
-				}
-				//write the Blob to restore paths
-				for i := 0; i < e.K+e.M; i++ {
-					i := i
-					diskId := dist[i]
-					if diskId == failDisk {
-						writeOffset := blockToOffset[i]
-						_, err := rfs.WriteAt(tempShard, int64(writeOffset)*e.BlockSize)
-						if err != nil {
-							return err
+					//write the Blob to restore paths
+					egp := e.errgroupPool.Get().(*errgroup.Group)
+					defer e.errgroupPool.Put(egp)
+					for i := 0; i < e.K+e.M; i++ {
+						i := i
+						diskId := dist[stripeNo][i]
+						if v, ok := replaceMap[diskId]; ok {
+							restoreId := v - e.DiskNum
+							writeOffset := fi.blockToOffset[stripeNo][i]
+							egp.Go(func() error {
+								_, err := rfs[restoreId].WriteAt(splitData[i],
+									int64(writeOffset)*e.BlockSize)
+								if err != nil {
+									return err
+								}
+								if e.diskInfos[diskId].ifMetaExist {
+									newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
+									if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+										return err
+									}
+								}
+								return nil
+
+							})
+
 						}
-						if e.diskInfos[diskId].ifMetaExist {
-							newMetapath := filepath.Join(e.diskInfos[e.DiskNum].mntPath, "META")
-							if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
-								return err
-							}
-						}
-						break
+					}
+					if err := egp.Wait(); err != nil {
+						return err
 					}
 				}
 				return nil

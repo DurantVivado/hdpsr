@@ -377,7 +377,7 @@ func execShell(command string) (string, error) {
 	return retstr, nil
 }
 
-func mapExist(mp map[int]bool, key int) (ret bool) {
+func mapExist(mp map[int]interface{}, key int) (ret bool) {
 	_, ret = mp[key]
 	return
 }

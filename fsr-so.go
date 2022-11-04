@@ -320,7 +320,7 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 			slotId[c]++
 			stripeCnt++
 			c := c
-			func() error {
+			eg.Go(func() error {
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
 				// read blocks in parallel
@@ -364,39 +364,41 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 					if err != nil {
 						return err
 					}
-				}
-				//write the Blob to restore paths
-				egp := e.errgroupPool.Get().(*errgroup.Group)
-				defer e.errgroupPool.Put(egp)
-				for i := 0; i < e.K+e.M; i++ {
-					i := i
-					diskId := dist[stripeNo][i]
-					if v, ok := replaceMap[diskId]; ok {
-						restoreId := v - e.DiskNum
-						writeOffset := fi.blockToOffset[stripeNo][i]
-						egp.Go(func() error {
-							_, err := rfs[restoreId].WriteAt(splitData[i],
-								int64(writeOffset)*e.BlockSize)
-							if err != nil {
-								return err
-							}
-							if e.diskInfos[diskId].ifMetaExist {
-								newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
-								if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+
+					//write the Blob to restore paths
+					egp := e.errgroupPool.Get().(*errgroup.Group)
+					defer e.errgroupPool.Put(egp)
+					for i := 0; i < e.K+e.M; i++ {
+						i := i
+						diskId := dist[stripeNo][i]
+						if v, ok := replaceMap[diskId]; ok {
+							restoreId := v - e.DiskNum
+							writeOffset := fi.blockToOffset[stripeNo][i]
+							egp.Go(func() error {
+								_, err := rfs[restoreId].WriteAt(splitData[i],
+									int64(writeOffset)*e.BlockSize)
+								if err != nil {
 									return err
 								}
-							}
-							return nil
+								if e.diskInfos[diskId].ifMetaExist {
+									newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
+									if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+										return err
+									}
+								}
+								return nil
 
-						})
+							})
 
+						}
+					}
+					if err := egp.Wait(); err != nil {
+						return err
 					}
 				}
-				if err := egp.Wait(); err != nil {
-					return err
-				}
 				return nil
-			}()
+			})
+
 		}
 		if err := eg.Wait(); err != nil {
 			return nil, err
