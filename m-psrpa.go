@@ -233,7 +233,12 @@ func (e *Erasure) PartialStripeMultiRecoverPassive(fileName string, slowLatency 
 					for i := range nodeArr[round] {
 						inputsIdx = append(inputsIdx, nodeArr[round][i].idx)
 					}
-					tempShard, err = e.enc.MultiRecoverWithSomeShards(decodeMatrix, blobBuf[s][:len(nodeArr[round])], inputsIdx, invalidIndices, tempShard)
+					tempShard, err = e.enc.MultiRecoverWithSomeShards(
+						decodeMatrix,
+						blobBuf[s][:len(nodeArr[round])],
+						inputsIdx,
+						invalidIndices,
+						tempShard)
 					if err != nil {
 						return err
 					}

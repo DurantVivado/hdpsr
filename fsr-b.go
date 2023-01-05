@@ -467,8 +467,7 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 		for s := 0; s < nextStripe; s++ {
 			s := s
 			stripeNo := stripeCnt + s
-			// eg.Go(
-			func() error {
+			eg.Go(func() error {
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
 				// get dist and blockToOffset by stripeNo
@@ -549,7 +548,7 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 					}
 				}
 				return nil
-			}()
+			})
 		}
 		if err := eg.Wait(); err != nil {
 			return nil, err

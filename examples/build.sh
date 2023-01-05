@@ -1,19 +1,19 @@
 #!/bin/bash
 # file-related parameters
-filename=test-64Mx320
+filename=test-64Mx16
 inputdir=/mnt/disk15/
 outputdir=/mnt/disk16/
 newfilename=new-64Mx16
 #data shards
-k=6
+k=4
 #parity shards
 m=2
 #used disk number
-dn=12
+dn=14
 #block size
-bs=1048576
+bs=67108864
 #memory limit
-mem=8
+mem=32
 #failed disk number
 fn=1
 #specified failed disk, starting from 0, 
@@ -28,20 +28,20 @@ fd=0
 # 128M 134217728
 # 256M 268435456
 
-# drop the cache to make the result more convincing
-../drop_cache.sh 
+
 go build -o main ./main.go
 now=`date +%c` 
 echo -e "sh: The program started at $now."  
 #------------------------encode a file--------------------------
-mode="recover"
+mode="encode"
 if [ $mode == "recover" ]; then
-
-#---------------------------repair the file----------------------
+    # drop the cache to make the result more convincing
+    ../drop_cache.sh 
+    #---------------------------repair the file----------------------
     # recover a file
     # methods=("fsr" "fsr-so_c" "fsr-so_g")
     # methods=("fsr" "fsr-b_1K" "fsr-b_FK" "fsr-b_R" "fsr-b_B")
-    methods=("fsr")
+    methods=("fsr-b_R")
     for method in ${methods[@]};do
         echo -e "method:$method" 
         start=`date +%s%N`
@@ -55,13 +55,13 @@ else
     ./main -md init -k $k -m $m -dn $dn -bs $bs -mem $mem -readbw
 
     # to encode a file 
-    ./main -md encode -f $inputdir$filename -conStripes 100 -o
+    # ./main -md encode -f $inputdir$filename -conStripes 100 -o
 
 
     # to update a file
     # ./main -md update -f $filename -nf $newfilename
     # to read a file
-    ./main -md read -f $filename -conStripes 100 -sp $outputdir$filename -o
+    # ./main -md read -f $filename -conStripes 100 -sp $outputdir$filename -o
     # to remove a file
     # ./main -md delete -f $filename
 

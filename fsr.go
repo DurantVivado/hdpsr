@@ -133,6 +133,7 @@ func (e *Erasure) FullStripeRecover(filename string, options *Options) (
 	e.ConStripes = e.MemSize * GiB / int(e.dataStripeSize)
 	e.ConStripes = minInt(e.ConStripes, stripeNum)
 	numBlob := ceilFracInt(stripeNum, e.ConStripes)
+	blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 	stripeCnt := 0
 	nextStripe := 0
 	for blob := 0; blob < numBlob; blob++ {
@@ -142,7 +143,6 @@ func (e *Erasure) FullStripeRecover(filename string, options *Options) (
 			nextStripe = e.ConStripes
 		}
 		eg := e.errgroupPool.Get().(*errgroup.Group)
-		blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 		for s := 0; s < nextStripe; s++ {
 			s := s
 			stripeNo := stripeCnt + s
