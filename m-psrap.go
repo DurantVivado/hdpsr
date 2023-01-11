@@ -241,18 +241,27 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 				// write the block to backup disk
 				egp := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(egp)
-				tempId := 0
+				orderMap := make(map[int]int)
+				tmp := 0
+				for j := 0; j < len(invalidIndices); j++ {
+					orderMap[dist[invalidIndices[j]]] = tmp
+					tmp++
+				}
 				for i := 0; i < e.K+e.M; i++ {
-					i := i
 					diskId := dist[i]
 					v := 0
 					ok := false
-					tempId := tempId
 					if v, ok = replaceMap[diskId]; ok {
+						diskId := diskId
 						restoreId := v - e.DiskNum
 						writeOffset := blockToOffset[i]
 						egp.Go(func() error {
-							_, err := rfs[restoreId].WriteAt(tempShard[tempId], int64(writeOffset)*e.BlockSize)
+							restoreId := restoreId
+							writeOffset := writeOffset
+							diskId := diskId
+							tmpId := orderMap[diskId]
+							// fmt.Printf("stripe %d disk %d tmpId: %v\n", spId, diskId, tmpId)
+							_, err := rfs[restoreId].WriteAt(tempShard[tmpId], int64(writeOffset)*e.BlockSize)
 							if err != nil {
 								return err
 							}
@@ -264,9 +273,6 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 							}
 							return nil
 						})
-					}
-					if ok {
-						tempId++
 					}
 				}
 				if err := egp.Wait(); err != nil {

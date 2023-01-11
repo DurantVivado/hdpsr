@@ -485,7 +485,8 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 					erg.Go(func() error {
 						//we also need to know the block's accurate offset with respect to disk
 						offset := fi.blockToOffset[stripeNo][i]
-						_, err := ifs[diskId].ReadAt(blobBuf[s][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
+						_, err := ifs[diskId].ReadAt(
+							blobBuf[s][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
 							int64(offset)*e.BlockSize)
 						// fmt.Println("Read ", n, " bytes at", i, ", block ", block)
 						if err != nil && err != io.EOF {

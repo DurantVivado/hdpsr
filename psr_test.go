@@ -13,7 +13,7 @@ func TestPartialStripeRecover(t *testing.T) {
 		K:               6,
 		M:               2,
 		DiskNum:         12,
-		BlockSize:       8 * MiB,
+		BlockSize:       4 * KiB,
 		MemSize:         8,
 		ConfigFile:      testConfigFile,
 		DiskMountPath:   testDiskMountPath,
@@ -32,10 +32,10 @@ func TestPartialStripeRecover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// err = testEC.InitSystem(true)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	err = testEC.InitSystem(true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = testEC.ReadConfig()
 	if err != nil {
 		t.Fatal(err)
@@ -49,14 +49,14 @@ func TestPartialStripeRecover(t *testing.T) {
 	}
 	// defer delTempDir()
 	// encode the file for first use
-	// _, err := testEC.EncodeFile(inpath)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// err = testEC.WriteConfig()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	_, err := testEC.EncodeFile(inpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.WriteConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testEC.Destroy(&SimOptions{
 		Mode:     "diskFail",

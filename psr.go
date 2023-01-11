@@ -1,12 +1,14 @@
 package hdpsr
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 
+	"github.com/YuchongHu/reedsolomon"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -135,8 +137,9 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 
 	numBlob := ceilFracInt(stripeNum, e.ConStripes)
 	// the number of parts to which the stripe repair process is split
-	group := 2
-	blobBuf := makeArr3DByte(e.ConStripes, group, int(e.BlockSize))
+	groupNum := 2
+	groupSize := ceilFracInt(e.K, groupNum)
+	blobBuf := makeArr3DByte(e.ConStripes, groupNum, int(e.BlockSize))
 	stripeCnt := 0
 	nextStripe := 0
 
@@ -150,6 +153,7 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 		for s := 0; s < nextStripe; s++ {
 			s := s
 			stripeNo := stripeCnt + s
+			fmt.Printf("stripe %d\n", s)
 			func() error {
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
@@ -169,15 +173,18 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 						continue
 					}
 				}
-				tempShards := make([][]byte, len(invalidIndices))
+				tempShards := makeArr2DByte(len(invalidIndices), int(e.BlockSize))
+				// Trick: Fetch decodeMatrix in advance, then recover
+				// each failed block in the group
 				decodeMatrix, err := e.enc.GetDecodeMatrix(invalidIndices)
 				if err != nil {
 					return err
 				}
-				for i := 0; i < ceilFracInt(e.K, group); i++ {
-					for j := 0; j < group; j++ {
+				for i := 0; i < groupSize; i++ {
+					for j := 0; j < groupNum; j++ {
 						m := j
-						d := i*group + m + fail // blk subscript
+						// the block subscript = groupNum * groupSize +
+						d := i*groupNum + m + fail // blk subscript
 						if d >= e.K+e.M {
 							break
 						}
@@ -190,7 +197,8 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 						}
 						erg.Go(func() error {
 							offset := fi.blockToOffset[stripeNo][d]
-							_, err := ifs[diskId].ReadAt(blobBuf[s][m][0:e.BlockSize],
+							_, err := ifs[diskId].ReadAt(
+								blobBuf[s][m][:e.BlockSize],
 								int64(offset)*e.BlockSize)
 							if err != nil && err != io.EOF {
 								return err
@@ -201,12 +209,14 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 					if err := erg.Wait(); err != nil {
 						return err
 					}
+
+					// the blockIdx in each group
 					inputsIdx := make([]int, 0)
-					for k := i * group; k < (i+1)*group; k++ {
-						if k > e.K+e.M {
+					for idx := i * groupSize; idx < (i+1)*groupSize; idx++ {
+						if idx > e.K+e.M {
 							break
 						}
-						inputsIdx = append(inputsIdx, k)
+						inputsIdx = append(inputsIdx, idx)
 					}
 					// recoverWithSomeShards
 					tempShards, err = e.enc.MultiRecoverWithSomeShards(
@@ -218,40 +228,40 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 					if err != nil {
 						return err
 					}
-				}
 
-				//write the Blob to restore paths
-				egp := e.errgroupPool.Get().(*errgroup.Group)
-				defer e.errgroupPool.Put(egp)
-				for i := 0; i < e.K+e.M; i++ {
-					i := i
-					diskId := dist[stripeNo][i]
-					if v, ok := replaceMap[diskId]; ok {
-						restoreId := v - e.DiskNum
-						writeOffset := fi.blockToOffset[stripeNo][i]
-						tempId := 0
-						egp.Go(func() error {
-							_, err := rfs[restoreId].WriteAt(tempShards[tempId],
-								int64(writeOffset)*e.BlockSize)
-							if err != nil {
-								return err
-							}
-							if e.diskInfos[diskId].ifMetaExist {
-								newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
-								if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+					//write the Blob to restore paths
+					egp := e.errgroupPool.Get().(*errgroup.Group)
+					defer e.errgroupPool.Put(egp)
+					for i := 0; i < len(invalidIndices); i++ {
+						d := invalidIndices[i]
+						i := i
+						diskId := dist[stripeNo][d]
+						if v, ok := replaceMap[diskId]; ok {
+							restoreId := v - e.DiskNum
+							writeOffset := fi.blockToOffset[stripeNo][d]
+							egp.Go(func() error {
+								_, err := rfs[restoreId].WriteAt(tempShards[i],
+									int64(writeOffset)*e.BlockSize)
+								if err != nil {
 									return err
 								}
-							}
-							return nil
+								if e.diskInfos[diskId].ifMetaExist {
+									newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
+									if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+										return err
+									}
+								}
+								return nil
 
-						})
-						tempId++
+							})
+						}
+					}
+					if err := egp.Wait(); err != nil {
+						return err
 					}
 				}
-				if err := egp.Wait(); err != nil {
-					return err
-				}
 				return nil
+
 			}()
 
 		}
@@ -273,4 +283,24 @@ func (e *Erasure) PartialStripeRecover(fileName string, options *Options) (map[s
 		log.Println("Finish recovering")
 	}
 	return ReplaceMap, nil
+}
+
+// GetStripeBuf concatenate the second dimension of given array
+// outputs an 2-D array
+func (e *Erasure) splitGroup(groupData [][]byte) ([][]byte, error) {
+	if len(groupData) == 0 || len(groupData[0]) == 0 {
+		return nil, reedsolomon.ErrInvalidInput
+	}
+	dst := make([][]byte, e.K+e.M)
+	i := 0
+	for g := 0; g < len(groupData); g++ {
+		remLen := len(groupData[g])
+		for remLen > 0 && len(groupData[g]) >= int(e.BlockSize) {
+			dst[i], groupData[g] = groupData[g][:e.BlockSize:e.BlockSize],
+				groupData[g][e.BlockSize:]
+			remLen -= int(e.BlockSize)
+			i++
+		}
+	}
+	return dst, nil
 }
