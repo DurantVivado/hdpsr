@@ -20,9 +20,9 @@ var failOnErr = func(mode string, e error) {
 	}
 }
 
-// if you want to enable cpu,memory or block profile functionality
-// set profileEnable as true, otherwise false
-// it's strongly advised to close this in production
+// if you want to enable cpu, memory or block profile functionality
+// set `profileEnable“ as true, otherwise false
+// it's strongly advised to unset this in production
 const profileEnable = false
 
 // default file paths (in the same directory as `main.go`)
@@ -129,6 +129,21 @@ func main() {
 			FileName: filePath,
 		})
 		_, err = erasure.FullStripeRecover(filePath, &hdpsr.Options{})
+		failOnErr(mode, err)
+	case "fsr-old":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverOld(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{})
 		failOnErr(mode, err)
 	case "fsr-so_c":
 		// recover with stripe

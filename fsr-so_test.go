@@ -96,10 +96,10 @@ func TestGetMinimalTime(t *testing.T) {
 
 func TestFullStripeRecoverWithOrder(t *testing.T) {
 	testEC := &Erasure{
-		K:               6,
+		K:               4,
 		M:               2,
-		DiskNum:         12,
-		BlockSize:       512 * KiB,
+		DiskNum:         14,
+		BlockSize:       67108864,
 		MemSize:         2,
 		ConfigFile:      testConfigFile,
 		DiskMountPath:   testDiskMountPath,
@@ -118,10 +118,10 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// err = testEC.InitSystem(true)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	err = testEC.InitSystem(true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = testEC.ReadConfig()
 	if err != nil {
 		t.Fatal(err)
@@ -130,23 +130,23 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 	// if err != nil {
 	// 	t.Fatal(err)
 	// }
-	fileSize := int64(1 * GiB)
+	fileSize := int64(10 * GiB)
 	fileName := fmt.Sprintf("temp-%d", fileSize)
 	inpath := filepath.Join("input", fileName)
-	slowLatency := 0
+	slowLatency := 2
 	err = generateRandomFileBySize(inpath, fileSize)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// defer delTempDir()
-	// _, err := testEC.EncodeFile(inpath)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// err = testEC.WriteConfig()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	defer delTempDir()
+	_, err := testEC.EncodeFile(inpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.WriteConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 	testEC.Destroy(&SimOptions{
 		Mode:     "diskFail",
 		FailDisk: "0",

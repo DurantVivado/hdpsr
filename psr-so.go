@@ -1,165 +1,18 @@
 package hdpsr
 
 import (
-	"container/heap"
 	"fmt"
 	"io"
 	"log"
-	"math"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	CONTINUOUS = 0
-	GREEDY     = 1
-	RANDOM     = 2
-)
-
-const RAND_TIMES = 200000
-
-func findContinuousScheme(A []float64, mid float64, Pr int) (
-	stripeOrder [][]int, minTime float64) {
-	cnt := 0
-	sum := float64(0)
-	stripeOrder = make([][]int, Pr)
-	maxSubTime := float64(0)
-	for i := 0; i < len(A); i++ {
-		if sum+A[i] > mid {
-			cnt++
-			minTime = maxFloat64(minTime, maxSubTime)
-			sum = 0
-			maxSubTime = 0
-		}
-		if cnt >= Pr {
-			return nil, 0
-		}
-		sum += A[i]
-		stripeOrder[cnt] = append(stripeOrder[cnt], i)
-		maxSubTime += A[i]
-	}
-	return
-}
-
-// full-stripe-repair with stripe order first
-func (e *Erasure) getMinimalTimeContinuous(stripeRepairTime []float64) (
-	stripeOrder [][]int, minTime float64) {
-	if len(stripeRepairTime) == 0 {
-		return nil, 0
-	}
-	Pr := (e.MemSize * GiB) / int(e.allStripeSize)
-	stripeOrder = make([][]int, Pr)
-	if len(stripeRepairTime) <= Pr {
-		for i := 0; i < len(stripeRepairTime); i++ {
-			stripeOrder[i] = append(stripeOrder[i], i)
-		}
-		return stripeOrder, maxFloat64(stripeRepairTime...)
-	}
-	maxTime := maxFloat64(stripeRepairTime...)
-	sumTime := sumFloat64(stripeRepairTime...)
-	l, r := maxTime, sumTime
-
-	for r-l > 1e-6 {
-		mid := l + (r-l)/2
-		ret1, ret2 := findContinuousScheme(stripeRepairTime, mid, Pr)
-		if ret1 != nil {
-			stripeOrder = ret1
-			minTime = ret2
-			r = mid
-		} else {
-			l = mid
-		}
-	}
-	return
-}
-
-// the greedy heuristic is to prioritize the long enduring stripes, and
-// every time put the slowest in the fastest slot.
-func (e *Erasure) getMinimalTimeGreedy(stripeRepairTime []float64) (
-	stripeOrder [][]int, minTime float64) {
-	n := len(stripeRepairTime)
-	if n == 0 {
-		return nil, 0
-	}
-	Pr := (e.MemSize * GiB) / int(e.allStripeSize)
-	stripeOrder = make([][]int, Pr)
-	if n <= Pr {
-		for i := 0; i < n; i++ {
-			stripeOrder[i] = append(stripeOrder[i], i)
-		}
-		return stripeOrder, maxFloat64(stripeRepairTime...)
-	}
-
-	h := &HeapFloat64{bigTop: true}
-	slots := &HeapFloat64{}
-	for i := 0; i < Pr; i++ {
-		heap.Push(slots, heapv{i, 0})
-	}
-	for i := 0; i < n; i++ {
-		heap.Push(h, heapv{i, stripeRepairTime[i]})
-	}
-	for h.Len() > 0 {
-		next_stripe := heap.Pop(h).(heapv)
-		slot := heap.Pop(slots).(heapv)
-		stripeOrder[slot.id] = append(stripeOrder[slot.id], next_stripe.id)
-		minTime = maxFloat64(minTime, slot.val+stripeRepairTime[next_stripe.id])
-		heap.Push(slots, heapv{
-			slot.id, slot.val + stripeRepairTime[next_stripe.id],
-		})
-	}
-	return
-}
-
-func (e *Erasure) getMinimalTimeRand(stripeRepairTime []float64) (
-	stripeOrder [][]int, minTime float64) {
-	if len(stripeRepairTime) == 0 {
-		return nil, 0
-	}
-	Pr := (e.MemSize * GiB) / int(e.allStripeSize)
-	stripeOrder = make([][]int, Pr)
-	if len(stripeRepairTime) <= Pr {
-		for i := 0; i < len(stripeRepairTime); i++ {
-			stripeOrder[i] = append(stripeOrder[i], i)
-		}
-		return stripeOrder, maxFloat64(stripeRepairTime...)
-	}
-	// A random heuristic
-	minTime = math.MaxFloat64
-	fail := int64(0)
-	for i := 0; i < RAND_TIMES; i++ {
-		maxTime := float64(0)
-		slotSet := &IntSet{}
-		tempOrder := make([][]int, Pr)
-		sumGroup := make([]float64, Pr)
-		rand.Seed(time.Now().UnixNano())
-		for j := 0; j < len(stripeRepairTime); j++ {
-			slot := rand.Int() % Pr
-			sumGroup[slot] += stripeRepairTime[j]
-			tempOrder[slot] = append(tempOrder[slot], j)
-			maxTime = maxFloat64(maxTime, sumGroup[slot])
-			if maxTime > minTime {
-				fail++
-				break
-			}
-			slotSet.Insert(slot)
-		}
-		// fmt.Printf("minTime:%d\n", time.Now().UnixNano())
-		if maxTime < minTime && slotSet.Size() == Pr {
-			minTime = maxTime
-			stripeOrder = tempOrder
-		}
-	}
-	// fmt.Println("valid :", RAND_TIMES-fail)
-	return
-}
-
 // Algorithm: FullStripeRecoverWithOrder
-func (e *Erasure) FullStripeRecoverWithOrder(
+func (e *Erasure) PartialStripeRecoverWithOrder(
 	fileName string, slowLatency int, options *Options) (
 	map[string]string, error) {
 	baseFileName := filepath.Base(fileName)
@@ -174,21 +27,13 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	fileSize := fi.FileSize
 	stripeNum := int(ceilFracInt64(fileSize, e.dataStripeSize))
 	dist := fi.Distribution
-	j := e.DiskNum
-	// think what if backup also breaks down, future stuff
-	for i := 0; i < e.DiskNum; i++ {
-		if !e.diskInfos[i].available {
-			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
-			replaceMap[i] = j
-			j++
-		}
-	}
 	//first we check the number of alive disks
 	// to judge if any part need reconstruction
 	alive := int32(0)
 	failNum := int32(0)
 	ifs := make([]*os.File, e.DiskNum)
 	erg := new(errgroup.Group)
+
 	for i, disk := range e.diskInfos[:e.DiskNum] {
 		i := i
 		disk := disk
@@ -213,6 +58,15 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	if err := erg.Wait(); err != nil {
 		if !e.Quiet {
 			log.Printf("%s", err.Error())
+		}
+	}
+	j := e.DiskNum
+	// think what if backup also breaks down, future stuff
+	for i := 0; i < e.DiskNum; i++ {
+		if !e.diskInfos[i].available {
+			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
+			replaceMap[i] = j
+			j++
 		}
 	}
 	defer func() {
@@ -413,28 +267,4 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 		log.Println("Finish recovering (using FSR-SO)")
 	}
 	return ReplaceMap, nil
-}
-
-func (e *Erasure) getStripeRepairtime(dist [][]int, slowLatency int) []float64 {
-	stripeRepairTime := make([]float64, len(dist))
-	stripeNum := len(dist)
-	for s := 0; s < stripeNum; s++ {
-		maxTime := float64(0)
-		blkTime := float64(0)
-		for j := 0; j < e.K+e.M; j++ {
-			diskId := dist[s][j]
-			if !e.diskInfos[diskId].available {
-				continue
-			}
-			if e.diskInfos[diskId].slow {
-				blkTime = float64(e.BlockSize)/(e.diskInfos[diskId].read_bw*MiB) + float64(slowLatency)
-			} else {
-				blkTime = float64(e.BlockSize) / (e.diskInfos[diskId].read_bw * MiB)
-			}
-			maxTime = maxFloat64(maxTime, blkTime)
-		}
-		stripeRepairTime[s] = maxTime
-		// fmt.Printf("i:%d, time:%f\n", i, stripeRepairTime[i])
-	}
-	return stripeRepairTime
 }

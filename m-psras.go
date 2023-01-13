@@ -202,7 +202,13 @@ func (e *Erasure) PartialStripeMultiRecoverSlowerFirst(fileName string, slowLate
 						i -= 1
 						continue
 					}
-					stripeToDiskArr = append(stripeToDiskArr, &sortNode{diskId: diskId, idx: i, blockId: i + fail, latency: e.diskInfos[diskId].latency})
+					stripeToDiskArr = append(stripeToDiskArr,
+						&sortNode{
+							diskId:  diskId,
+							idx:     i,
+							blockId: i + fail,
+							latency: e.diskInfos[diskId].latency,
+						})
 				}
 				for len(stripeToDiskArr) > 0 {
 					group := BiggestK(stripeToDiskArr, intraStripe)
@@ -227,7 +233,12 @@ func (e *Erasure) PartialStripeMultiRecoverSlowerFirst(fileName string, slowLate
 					for i := range group {
 						inputsIdx = append(inputsIdx, int(group[i].idx))
 					}
-					tempShard, err = e.enc.MultiRecoverWithSomeShards(decodeMatrix, blobBuf[s][:len(group)], inputsIdx, invalidIndices, tempShard)
+					tempShard, err = e.enc.MultiRecoverWithSomeShards(
+						decodeMatrix,
+						blobBuf[s][:len(group)],
+						inputsIdx,
+						invalidIndices,
+						tempShard)
 					if err != nil {
 						return err
 					}

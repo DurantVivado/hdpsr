@@ -168,7 +168,7 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 		for s := 0; s < nextStripe; s++ {
 			s := s
 			stripeNo := stripeCnt + s
-			func() error {
+			eg.Go(func() error {
 				spId := stripes[stripeNo]
 				spInfo := e.Stripes[spId]
 				erg := e.errgroupPool.Get().(*errgroup.Group)
@@ -279,7 +279,7 @@ func (e *Erasure) PartialStripeMultiRecoverPreliminary(
 					return err
 				}
 				return nil
-			}()
+			})
 		}
 		if err := eg.Wait(); err != nil {
 			return nil, err

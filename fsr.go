@@ -24,6 +24,15 @@ func (e *Erasure) FullStripeRecover(filename string, options *Options) (
 	fileSize := fi.FileSize
 	stripeNum := int(ceilFracInt64(fileSize, e.dataStripeSize))
 	dist := fi.Distribution
+	j := e.DiskNum
+	// think what if backup also breaks down, future stuff
+	for i := 0; i < e.DiskNum; i++ {
+		if !e.diskInfos[i].available {
+			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
+			replaceMap[i] = j
+			j++
+		}
+	}
 	//first we check the number of alive disks
 	// to judge if any part need reconstruction
 	alive := int32(0)
@@ -57,15 +66,7 @@ func (e *Erasure) FullStripeRecover(filename string, options *Options) (
 			log.Printf("%s", err.Error())
 		}
 	}
-	j := e.DiskNum
-	// think what if backup also breaks down, future stuff
-	for i := 0; i < e.DiskNum; i++ {
-		if !e.diskInfos[i].available {
-			ReplaceMap[e.diskInfos[i].mntPath] = e.diskInfos[j].mntPath
-			replaceMap[i] = j
-			j++
-		}
-	}
+
 	defer func() {
 		for i := 0; i < e.DiskNum; i++ {
 			if ifs[i] != nil {
