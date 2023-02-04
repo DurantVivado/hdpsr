@@ -11,7 +11,7 @@ import (
 )
 
 func (e *Erasure) FullStripeMultiRecover(fileName string,
-	slowLatency int, options *Options) (map[string]string, error) {
+	slowLatency float64, options *Options) (map[string]string, error) {
 	// start1 := time.Now()
 	failNum := 0
 	for i := 0; i < e.DiskNum; i++ {

@@ -32,7 +32,7 @@ func (e *Erasure) getIntraStripeFast() int {
 }
 
 func (e *Erasure) PartialStripeRecoverSlowerFirst(
-	fileName string, slowLatency int, options *Options) (
+	fileName string, slowLatency float64, options *Options) (
 	map[string]string, error) {
 	var failDisk int = 0
 	for i := range e.diskInfos {

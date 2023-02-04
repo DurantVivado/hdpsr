@@ -44,10 +44,10 @@ func TestFullStripeRecoverOld(t *testing.T) {
 	// 	t.Fatal(err)
 	// }
 	fileSize := int64(1 * GiB)
-	slowLatency := 0
+	slowLatency := 0.0
 	fileName := fmt.Sprintf("temp-%d", fileSize)
 	inpath := filepath.Join("input", fileName)
-	// slowLatency := 0
+	// slowLatency := 0.0
 	err = generateRandomFileBySize(inpath, fileSize)
 	if err != nil {
 		t.Fatal(err)

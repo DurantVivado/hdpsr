@@ -48,6 +48,10 @@ func TestPrintDiskInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = testEC.ReadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = testEC.ReadDiskInfo()
 	if err != nil {
 		t.Fatal(err)

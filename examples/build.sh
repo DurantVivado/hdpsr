@@ -1,19 +1,19 @@
 #!/bin/bash
 # file-related parameters
 filename=test-64Mx160
-inputdir=/mnt/disk16/
-outputdir=/mnt/disk15/
+inputdir=/mnt/disk12/
+outputdir=/mnt/disk12/
 newfilename=new-64Mx16
 #data shards
 k=4
 #parity shards
 m=2
 #used disk number
-dn=14
+dn=10
 #block size
 bs=67108864
 #memory limit
-mem=2
+mem=32
 #failed disk number
 fn=1
 #specified failed disk, starting from 0, 
@@ -46,7 +46,8 @@ if [ $mode == "recover" ]; then
     # methods=("fsr" "fsr-so_c" "fsr-so_g")
     # methods=("fsr" "fsr-b_1K" "fsr-b_FK" "fsr-b_R" "fsr-b_B")
     # methods=("fsr" "mpsrap" "mpsras" "mpsrpa")
-    methods=("fsr" "fsr-old")
+    # methods=("fsr" "fsr-old")
+    methods=("fsr" "psr-so_g" "fsr-so_g")
 
     #to avoid serendipity, we shuffle the order of methods
     #for `RAND_TIME` time(s)

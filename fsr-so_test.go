@@ -66,7 +66,7 @@ func TestGetMinimalTime(t *testing.T) {
 	// stripeRepairTime := []float64{2, 3, 4, 4, 4, 5, 6, 8, 8, 9}
 	// stripeRepairTime := genRandArrFloat64(StripeNum, 10, 0)
 	// fmt.Println("Stripe Repair Index:", []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
-	slowLatency := 0
+	slowLatency := 0.0
 	intFi, ok := testEC.fileMap.Load(inpath)
 	if !ok {
 		t.Error("file not found in fileMap")
@@ -133,7 +133,7 @@ func TestFullStripeRecoverWithOrder(t *testing.T) {
 	fileSize := int64(10 * GiB)
 	fileName := fmt.Sprintf("temp-%d", fileSize)
 	inpath := filepath.Join("input", fileName)
-	slowLatency := 2
+	slowLatency := 2.0
 	err = generateRandomFileBySize(inpath, fileSize)
 	if err != nil {
 		t.Fatal(err)

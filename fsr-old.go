@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) FullStripeRecoverOld(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+func (e *Erasure) FullStripeRecoverOld(fileName string, slowLatency float64, options *Options) (map[string]string, error) {
 	// start1 := time.Now()
 	var failDisk int = 0
 	for i := range e.diskInfos {

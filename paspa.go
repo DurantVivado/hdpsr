@@ -29,7 +29,7 @@ func (e *Erasure) timer(ch chan bool, t int, diskId int) error {
 	return nil
 }
 
-func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency int, option *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeRecoverPassive(fileName string, slowLatency float64, option *Options) (map[string]string, error) {
 	var failDisk int = 0
 	for i := range e.diskInfos {
 		if !e.diskInfos[i].available {

@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) PartialStripeRecoverPlus(fileName string, slowLatency int, intraStripe int, options *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeRecoverPlus(fileName string, slowLatency float64, intraStripe int, options *Options) (map[string]string, error) {
 	var failDisk int = 0
 	for i := range e.diskInfos {
 		if !e.diskInfos[i].available {

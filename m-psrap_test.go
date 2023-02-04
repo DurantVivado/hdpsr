@@ -46,7 +46,7 @@ func TestPartialStripeMultiRecoverPreliminary(t *testing.T) {
 	fileSize := int64(1 * GiB)
 	fileName := fmt.Sprintf("temp-%d", fileSize)
 	inpath := filepath.Join("input", fileName)
-	slowLatency := 0
+	slowLatency := 0.0
 	err = generateRandomFileBySize(inpath, fileSize)
 	if err != nil {
 		t.Fatal(err)

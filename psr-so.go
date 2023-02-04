@@ -13,7 +13,7 @@ import (
 
 // Algorithm: FullStripeRecoverWithOrder
 func (e *Erasure) PartialStripeRecoverWithOrder(
-	fileName string, slowLatency int, options *Options) (
+	fileName string, slowLatency float64, options *Options) (
 	map[string]string, error) {
 	baseFileName := filepath.Base(fileName)
 	ReplaceMap := make(map[string]string)
@@ -156,9 +156,11 @@ func (e *Erasure) PartialStripeRecoverWithOrder(
 		log.Printf("minTime: %.3f s\n", minTime)
 		log.Printf("StripeOrder: %v\n", stripeOrder)
 	}
+	// `concurrency` specifies how many groups of
+	// stripes the memory can accommodate in the same time slot
 	concurrency := len(stripeOrder)
 	slotId := make([]int, concurrency)
-	blobBuf := makeArr2DByte(concurrency, int(e.allStripeSize))
+	blobBuf := makeArr3DByte(concurrency, options.intraStripe, int(e.BlockSize))
 	for stripeCnt < stripeNum {
 		eg := e.errgroupPool.Get().(*errgroup.Group)
 		for c := 0; c < concurrency; c++ {
@@ -166,89 +168,135 @@ func (e *Erasure) PartialStripeRecoverWithOrder(
 			if len(stripeOrder[c]) == 0 {
 				continue
 			}
+			// if the current slot index reaches
+			// the last block, continue
 			if len(stripeOrder[c]) == slotId[c] {
 				continue
 			}
 			stripeNo := stripeOrder[c][slotId[c]]
+			blob := blobBuf[c]
 			slotId[c]++
 			stripeCnt++
-			c := c
 			eg.Go(func() error {
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
+				// get decodeMatrix of each stripe
+				invalidIndices := make([]int, 0)
+				for i, blk := range dist[stripeNo] {
+					if _, ok := replaceMap[blk]; ok {
+						invalidIndices = append(invalidIndices, i)
+					}
+				}
+				tempShard := make([][]byte, len(invalidIndices))
+				for i := 0; i < len(invalidIndices); i++ {
+					tempShard[i] = make([]byte, e.BlockSize)
+				}
+				// invalidIndices = append(invalidIndices, invalidIndice)
+				decodeMatrix, err := e.enc.GetDecodeMatrix(invalidIndices)
+				if err != nil {
+					return err
+				}
 				// read blocks in parallel
-				failList := make(map[int]bool)
-				for i := 0; i < e.K+e.M; i++ {
-					i := i
-					diskId := dist[stripeNo][i]
-					disk := e.diskInfos[diskId]
-					blkStat := fi.blockInfos[stripeNo][i]
-					if !disk.available || blkStat.bstat != blkOK {
-						failList[diskId] = true
+				stripeToDiskArr := make([]*sortNode, 0)
+				fail := 0
+				for i := 0; i < e.K; i++ {
+					diskId := dist[stripeNo][i+fail]
+					if !e.diskInfos[diskId].available {
+						fail += 1
+						i -= 1
 						continue
 					}
-					erg.Go(func() error {
-						offset := fi.blockToOffset[stripeNo][i]
-						_, err := ifs[diskId].ReadAt(blobBuf[c][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
-							int64(offset)*e.BlockSize)
-						if err != nil && err != io.EOF {
-							return err
-						}
-						return nil
-					})
+					stripeToDiskArr = append(stripeToDiskArr,
+						&sortNode{
+							diskId:  diskId,
+							idx:     i,
+							blockId: i + fail,
+							latency: float64(e.BlockSize) / e.diskInfos[diskId].read_bw,
+						})
 				}
-				if err := erg.Wait(); err != nil {
-					return err
-				}
-				//Split the blob into k+m parts
-				splitData, err := e.splitStripe(blobBuf[c])
-				if err != nil {
-					return err
-				}
-				ok, err := e.enc.Verify(splitData)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					err = e.enc.ReconstructWithList(splitData,
-						&failList,
-						&(dist[stripeNo]),
-						options.Degrade)
+
+				for len(stripeToDiskArr) > 0 {
+					// everytime sort stripeToDiskArr in reversed order
+					// pick `options.intraStripe` disks with biggest latency
+					group := BiggestK(stripeToDiskArr, options.intraStripe)
+					for i := range group {
+						i := i
+						diskId := group[i].diskId
+						blockId := group[i].blockId
+						erg.Go(func() error {
+							offset := fi.blockToOffset[stripeNo][blockId]
+							_, err := ifs[diskId].ReadAt(blob[i][0:e.BlockSize],
+								int64(offset)*e.BlockSize)
+							if err != nil && err != io.EOF {
+								return err
+							}
+							return nil
+						})
+					}
+					if err = erg.Wait(); err != nil {
+						return err
+					}
+					inputsIdx := make([]int, 0)
+					for i := range group {
+						inputsIdx = append(inputsIdx, int(group[i].idx))
+					}
+					tempShard, err = e.enc.MultiRecoverWithSomeShards(
+						decodeMatrix,
+						blob[:len(group)],
+						inputsIdx,
+						invalidIndices,
+						tempShard)
 					if err != nil {
 						return err
 					}
-
-					//write the Blob to restore paths
-					egp := e.errgroupPool.Get().(*errgroup.Group)
-					defer e.errgroupPool.Put(egp)
-					for i := 0; i < e.K+e.M; i++ {
-						i := i
-						diskId := dist[stripeNo][i]
-						if v, ok := replaceMap[diskId]; ok {
-							restoreId := v - e.DiskNum
-							writeOffset := fi.blockToOffset[stripeNo][i]
-							egp.Go(func() error {
-								_, err := rfs[restoreId].WriteAt(splitData[i],
-									int64(writeOffset)*e.BlockSize)
-								if err != nil {
-									return err
-								}
-								if e.diskInfos[diskId].ifMetaExist {
-									newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
-									if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
-										return err
-									}
-								}
-								return nil
-
-							})
-
-						}
-					}
-					if err := egp.Wait(); err != nil {
-						return err
+					// delete visited disk in stripeToDiskArr
+					if options.intraStripe > len(stripeToDiskArr) {
+						stripeToDiskArr = stripeToDiskArr[len(stripeToDiskArr):]
+					} else {
+						stripeToDiskArr = stripeToDiskArr[options.intraStripe:]
 					}
 				}
+				// write the block to backup disk
+				egp := e.errgroupPool.Get().(*errgroup.Group)
+				defer e.errgroupPool.Put(egp)
+				orderMap := make(map[int]int)
+				tmp := 0
+				for j := 0; j < len(invalidIndices); j++ {
+					orderMap[dist[stripeNo][invalidIndices[j]]] = tmp
+					tmp++
+				}
+				for i := 0; i < e.K+e.M; i++ {
+					diskId := dist[stripeNo][i]
+					v := 0
+					ok := false
+					if v, ok = replaceMap[diskId]; ok {
+						diskId := diskId
+						restoreId := v - e.DiskNum
+						writeOffset := fi.blockToOffset[stripeNo][i]
+						egp.Go(func() error {
+							restoreId := restoreId
+							writeOffset := writeOffset
+							diskId := diskId
+							tmpId := orderMap[diskId]
+							// fmt.Printf("stripe %d disk %d tmpId: %v\n", spId, diskId, tmpId)
+							_, err := rfs[restoreId].WriteAt(tempShard[tmpId], int64(writeOffset)*e.BlockSize)
+							if err != nil {
+								return err
+							}
+							if e.diskInfos[diskId].ifMetaExist {
+								newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
+								if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+									return err
+								}
+							}
+							return nil
+						})
+					}
+				}
+				if err := egp.Wait(); err != nil {
+					return err
+				}
+
 				return nil
 			})
 

@@ -190,6 +190,51 @@ func main() {
 			slowLatency,
 			&hdpsr.Options{Scheme: hdpsr.RANDOM})
 		failOnErr(mode, err)
+	case "psr-so_g":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.PartialStripeRecoverWithOrder(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{Scheme: hdpsr.GREEDY})
+		failOnErr(mode, err)
+	case "psr-so_r":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.PartialStripeRecoverWithOrder(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{Scheme: hdpsr.RANDOM})
+		failOnErr(mode, err)
+	case "psr-so_c":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.PartialStripeRecoverWithOrder(
+			filePath,
+			slowLatency,
+			&hdpsr.Options{Scheme: hdpsr.CONTINUOUS})
+		failOnErr(mode, err)
 	case "fsr-b_1K":
 		// recover with stripe
 		err = erasure.ReadConfig()

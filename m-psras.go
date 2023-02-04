@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) PartialStripeMultiRecoverSlowerFirst(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeMultiRecoverSlowerFirst(fileName string, slowLatency float64, options *Options) (map[string]string, error) {
 	failNum := 0
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {

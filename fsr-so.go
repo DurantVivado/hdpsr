@@ -160,7 +160,7 @@ func (e *Erasure) getMinimalTimeRand(stripeRepairTime []float64) (
 
 // Algorithm: FullStripeRecoverWithOrder
 func (e *Erasure) FullStripeRecoverWithOrder(
-	fileName string, slowLatency int, options *Options) (
+	fileName string, slowLatency float64, options *Options) (
 	map[string]string, error) {
 	baseFileName := filepath.Base(fileName)
 	ReplaceMap := make(map[string]string)
@@ -415,7 +415,7 @@ func (e *Erasure) FullStripeRecoverWithOrder(
 	return ReplaceMap, nil
 }
 
-func (e *Erasure) getStripeRepairtime(dist [][]int, slowLatency int) []float64 {
+func (e *Erasure) getStripeRepairtime(dist [][]int, slowLatency float64) []float64 {
 	stripeRepairTime := make([]float64, len(dist))
 	stripeNum := len(dist)
 	for s := 0; s < stripeNum; s++ {
@@ -427,7 +427,7 @@ func (e *Erasure) getStripeRepairtime(dist [][]int, slowLatency int) []float64 {
 				continue
 			}
 			if e.diskInfos[diskId].slow {
-				blkTime = float64(e.BlockSize)/(e.diskInfos[diskId].read_bw*MiB) + float64(slowLatency)
+				blkTime = float64(e.BlockSize)/(e.diskInfos[diskId].read_bw*MiB) + slowLatency
 			} else {
 				blkTime = float64(e.BlockSize) / (e.diskInfos[diskId].read_bw * MiB)
 			}

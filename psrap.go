@@ -84,7 +84,7 @@ func reduce(data [][]float64, is int, mem int, blockSize int) float64 {
 }
 
 // Calculate the read time for each single block
-func (e *Erasure) getData(slowLatency int) [][]float64 {
+func (e *Erasure) getData(slowLatency float64) [][]float64 {
 	data := make([][]float64, len(e.Stripes))
 	for i := range data {
 		data[i] = make([]float64, e.K)
@@ -110,7 +110,7 @@ func (e *Erasure) getData(slowLatency int) [][]float64 {
 	return data
 }
 
-func (e *Erasure) getIntraStripeOptimal(slowLatency int) int {
+func (e *Erasure) getIntraStripeOptimal(slowLatency float64) int {
 	data := e.getData(slowLatency)
 	sort2DArray(data)
 	var minIs int = 2
@@ -129,7 +129,7 @@ func (e *Erasure) getIntraStripeOptimal(slowLatency int) int {
 	return minIs
 }
 
-func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency int, options *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeRecoverPreliminary(fileName string, slowLatency float64, options *Options) (map[string]string, error) {
 	var failDisk int = 0
 	for i := range e.diskInfos {
 		if !e.diskInfos[i].available {

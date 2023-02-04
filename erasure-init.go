@@ -309,6 +309,7 @@ func (e *Erasure) ReadConfig() error {
 	if err != nil {
 		return err
 	}
+	//update disk latency
 	e.errgroupPool.New = func() interface{} {
 		return &errgroup.Group{}
 	}
@@ -528,10 +529,13 @@ func (e *Erasure) ReadDiskInfo() error {
 	// if err != nil {
 	// 	return err
 	// }
+	//use bandwidth instead of latency
 	diskArr := make([]*sortNode, 0)
 	for i := range e.diskInfos[0:e.DiskNum] {
 		disk := e.diskInfos[i]
-		diskArr = append(diskArr, &sortNode{diskId: int(disk.diskId), latency: disk.latency})
+		diskArr = append(diskArr, &sortNode{
+			diskId:  int(disk.diskId),
+			latency: disk.latency})
 	}
 	slowArr := BiggestK(diskArr, e.SlowNum)
 
@@ -568,7 +572,7 @@ func (e *Erasure) ReadDiskPartition() error {
 	return nil
 }
 
-// ReadDiskLatency reads the current IO Bandwidth using `iostat`
+// Deprecated: ReadDiskLatency reads the current IO Bandwidth using `iostat`
 func (e *Erasure) ReadDiskLatency() error {
 	erg := new(errgroup.Group)
 	for i := range e.diskInfos {

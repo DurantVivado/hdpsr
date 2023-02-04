@@ -155,7 +155,7 @@ type Erasure struct {
 	DiskMountPath string `json:"-"`
 
 	// DiskBWPath is the file path recording all disks' read bandwidth and write bandwidth
-	DiskBWPath string `json:"diskBWPath"`
+	DiskBWPath string `json:"-"`
 
 	// whether to read bandwith from file
 	ReadBWfromFile bool `json:"readBW"`
@@ -173,7 +173,7 @@ type Erasure struct {
 	Quiet bool `json:"-"`
 
 	// memory size
-	MemSize int `json:"memSize"`
+	MemSize int `json:"-"`
 
 	// memory usage
 	memUsage *MemUsage `json:"-"`
@@ -246,6 +246,8 @@ type Options struct {
 	testmode bool
 	//whether to consult user's instruction before handling something destructive
 	warning bool
+	// intra stripe parallelism
+	intraStripe int
 }
 
 // SimOptions defines the parameters for simulation

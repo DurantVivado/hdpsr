@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (e *Erasure) PartialStripeMultiRecoverPassive(fileName string, slowLatency int, option *Options) (map[string]string, error) {
+func (e *Erasure) PartialStripeMultiRecoverPassive(fileName string, slowLatency float64, option *Options) (map[string]string, error) {
 	failNum := 0
 	for i := 0; i < e.DiskNum; i++ {
 		if !e.diskInfos[i].available {
