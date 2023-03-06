@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -121,6 +122,55 @@ func ceilFracInt64(a, b int64) int64 {
 	return (a + b - 1) / b
 }
 
+func avgInt(arr []int) float64 {
+	ret := float64(0)
+	for _, num := range arr {
+		ret += float64(num)
+	}
+	ret /= float64(len(arr))
+	return ret
+}
+
+// fpowInt implements the fast-power of pow(base, exponent)
+func fpowInt(base, exponent int) int {
+	if exponent == 0 {
+		return 1
+	}
+	result := fpowInt(base, exponent/2)
+	if exponent%2 == 0 {
+		return result * result
+	} else {
+		return base * result * result
+	}
+}
+
+// fpowInt implements the fast-power of pow(base, exponent)
+func fpowFloat64(base float64, exponent int) float64 {
+	if exponent == 0 {
+		return 1
+	}
+	result := fpowFloat64(base, exponent/2)
+	if exponent%2 == 0 {
+		return result * result
+	} else if exponent > 0 {
+		return base * result * result
+	} else {
+		return (result * result) / base
+	}
+}
+
+// calcSD returns the standard deviation of an array
+func calcSDInt(arr []int) float64 {
+	avgNum := avgInt(arr)
+	ret := float64(0)
+	for _, num := range arr {
+		ret += fpowFloat64(float64(num)-avgNum, 2)
+	}
+	ret /= float64(len(arr))
+	ret = math.Sqrt(ret)
+	return ret
+}
+
 func minInt(args ...int) int {
 	if len(args) == 0 {
 		return 0x7fffffff
@@ -191,6 +241,17 @@ func genRandArrInt(n, start int) []int {
 		shuff[i] = i + start
 	}
 	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(shuff), func(i, j int) { shuff[i], shuff[j] = shuff[j], shuff[i] })
+	return shuff
+}
+
+// genRandArrInt generate a random integer array ranging in [start, strat+n)
+func genRandArrIntSeed(n, start int, seed int64) []int {
+	shuff := make([]int, n)
+	for i := 0; i < n; i++ {
+		shuff[i] = i + start
+	}
+	rand.Seed(seed)
 	rand.Shuffle(len(shuff), func(i, j int) { shuff[i], shuff[j] = shuff[j], shuff[i] })
 	return shuff
 }

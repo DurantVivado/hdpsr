@@ -2,6 +2,15 @@ package hdpsr
 
 import "math"
 
+func (e *Erasure) genStripeDist(stripeNum int, seed int64) [][]int {
+	dist := make([][]int, stripeNum)
+	for i := 0; i < stripeNum; i++ {
+		dist[i] = genRandArrIntSeed(e.DiskNum, 0, seed)[:e.K+e.M]
+		seed += 1
+	}
+	return dist
+}
+
 // Examplar random distribution layout generator
 // Two structure need specialized: fi.blockToOffset and fi.Distribution
 func (e *Erasure) generateLayout(fi *fileInfo) {

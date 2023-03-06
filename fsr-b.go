@@ -21,7 +21,7 @@ const (
 )
 
 func (e *Erasure) diskMetric(load, disk_id int) float64 {
-	return float64(load) / e.diskInfos[disk_id].read_bw
+	return float64(load) /// e.diskInfos[disk_id].read_bw
 }
 
 // the default scheme: for each stripe, read the first k blocks
@@ -61,7 +61,7 @@ func (e *Erasure) findFirstKScheme(dist [][]int, replaceMap map[int]int) (
 	}
 	if !e.Quiet {
 		fmt.Printf("---------------FSR-B_1K Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	return
@@ -156,7 +156,7 @@ func (e *Erasure) findRandomScheme(dist [][]int, replaceMap map[int]int) (
 	}
 	if !e.Quiet {
 		fmt.Printf("---------------FSR-B_R Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	return
@@ -183,7 +183,7 @@ func (e *Erasure) findBalanceScheme(dist [][]int, replaceMap map[int]int) (
 				if _, ok := stripeRedu[s]; ok {
 					stripeRedu[s]--
 				} else {
-					stripeRedu[s] = e.M - 1
+					stripeRedu[s] = e.M
 				}
 				failBlk++
 				flag = false
@@ -310,7 +310,7 @@ func (e *Erasure) findBalanceScheme(dist [][]int, replaceMap map[int]int) (
 	}
 	if !e.Quiet {
 		fmt.Printf("---------------FSR-B_B Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	return
