@@ -1,5 +1,8 @@
 # hdpsr
 ICPP22hdpsr
+Lin Wang, Yuchong Hu*, Qian Du, Dan Feng, Ray Wu, Ingo He and Kevin Zhang
+"Exploiting Parallelism of Disk Failure Recovery via Partial Stripe Repair for an Erasure-Coded High-Density Storage Server"
+Proceedings of the 51st International Conference on Parallel Processing (ICPP 2022)(CCF B)(accepted), [Virtual Online](https://dl.acm.org/doi/abs/10.1145/3545008.3545014).
 
 ## Installation
 You should prepare a machine running Ubuntu16.04 and configure the Golang environment in advance.
