@@ -109,7 +109,7 @@ func (e *Erasure) findFastestKScheme(dist [][]int, replaceMap map[int]int) (
 	}
 	if !e.Quiet {
 		fmt.Printf("---------------FSR-B_FK Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d\n", maxLoad, sumLoad)
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
 		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	return
@@ -176,27 +176,29 @@ func (e *Erasure) findBalanceScheme(dist [][]int, replaceMap map[int]int) (
 	diskDict := make([]IntSet, e.DiskNum)
 	available := 0
 	for s := 0; s < stripeNum; s++ {
-		flag := true
+		isFail := false
 		failBlk := 0
 		for i := 0; i < e.K+e.M; i++ {
 			if _, ok := replaceMap[dist[s][i]]; ok {
 				if _, ok := stripeRedu[s]; ok {
 					stripeRedu[s]--
 				} else {
-					stripeRedu[s] = e.M
+					stripeRedu[s] = e.M - 1
 				}
 				failBlk++
-				flag = false
-			} else {
-				diskLoads[dist[s][i]]++
-				diskDict[dist[s][i]].Insert(s)
+				isFail = true
 			}
-
 		}
 		if failBlk > 0 {
 			available += (e.M - failBlk)
 		}
-		if !flag {
+		if isFail {
+			for i := 0; i < e.K+e.M; i++ {
+				if _, ok := replaceMap[dist[s][i]]; !ok {
+					diskLoads[dist[s][i]]++
+					diskDict[dist[s][i]].Insert(s)
+				}
+			}
 			failStripeNum += 1
 			failStripeSet.Insert(s)
 		}

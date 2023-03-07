@@ -21,5 +21,5 @@ examples/main.json
 examples/*.pprof
 examples/diskBW
 profiles/*.pprof
-test/
+test/*
 log.txt
