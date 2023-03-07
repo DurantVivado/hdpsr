@@ -14,7 +14,6 @@ Grasure.test
 examples/test
 examples/main
 examples/output
-examples/.hdr.disks.path
 examples/*.old
 examples/conf.json
 examples/main.json
@@ -22,4 +21,6 @@ examples/*.pprof
 examples/diskBW
 profiles/*.pprof
 test/*
+test/.test.conf.json
+test/.test.diskBW
 log.txt
