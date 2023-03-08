@@ -273,7 +273,7 @@ const (
 	blkFail       blockStat = 1
 	TESTDIR                 = "test"
 	maxGoroutines           = 10240
-	intBit                  = 64
+	IntBit                  = 64
 	TiB                     = 1 << 40
 	GiB                     = 1 << 30
 	MiB                     = 1 << 20

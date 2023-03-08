@@ -26,13 +26,11 @@ func (e *Erasure) diskMetric(load, disk_id int) float64 {
 
 // the default scheme: for each stripe, read the first k blocks
 func (e *Erasure) findFirstKScheme(dist [][]int, replaceMap map[int]int) (
-	firstKScheme [][]int) {
+	[][]int, []int) {
 	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
-	firstKScheme = make([][]int, stripeNum)
-	maxLoad := 0
+	firstKScheme := make([][]int, stripeNum)
 	sumDisk := make([]int, e.DiskNum)
-	sumLoad := 0
 	for s := 0; s < stripeNum; s++ {
 		for i := 0; i < e.K+e.M; i++ {
 			if _, ok := replaceMap[dist[s][i]]; ok {
@@ -48,8 +46,6 @@ func (e *Erasure) findFirstKScheme(dist [][]int, replaceMap map[int]int) (
 				if _, ok := replaceMap[diskId]; !ok {
 					firstKScheme[s] = append(firstKScheme[s], diskId)
 					sumDisk[diskId]++
-					maxLoad = maxInt(maxLoad, sumDisk[diskId])
-					sumLoad++
 					if len(firstKScheme[s]) == e.K {
 						break
 					}
@@ -59,24 +55,22 @@ func (e *Erasure) findFirstKScheme(dist [][]int, replaceMap map[int]int) (
 			firstKScheme[s] = dist[s]
 		}
 	}
-	if !e.Quiet {
-		fmt.Printf("---------------FSR-B_1K Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
-		fmt.Printf("disk loads:\n%v\n", sumDisk)
-	}
-	return
+	// if !e.Quiet {
+	// 	fmt.Printf("---------------FSR-B_1K Algorithm--------------")
+	// 	fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
+	// 	fmt.Printf("disk loads:\n%v\n", sumDisk)
+	// }
+	return firstKScheme, sumDisk
 }
 
 // the default scheme: for each stripe, read the fastest k blocks,
 // the corresponding disk of which has the largest bandwidth
 func (e *Erasure) findFastestKScheme(dist [][]int, replaceMap map[int]int) (
-	fastestKScheme [][]int) {
+	[][]int, []int) {
 	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
-	fastestKScheme = make([][]int, stripeNum)
-	maxLoad := 0
+	fastestKScheme := make([][]int, stripeNum)
 	sumDisk := make([]int, e.DiskNum)
-	sumLoad := 0
 	for s := 0; s < stripeNum; s++ {
 		for i := 0; i < e.K+e.M; i++ {
 			if _, ok := replaceMap[dist[s][i]]; ok {
@@ -99,31 +93,27 @@ func (e *Erasure) findFastestKScheme(dist [][]int, replaceMap map[int]int) (
 			})
 			for j := 0; j < e.K; j++ {
 				sumDisk[diskVec[j]]++
-				sumLoad++
-				maxLoad = maxInt(maxLoad, sumDisk[diskVec[j]])
 			}
 			fastestKScheme[s] = diskVec[:e.K]
 		} else {
 			fastestKScheme[s] = dist[s]
 		}
 	}
-	if !e.Quiet {
-		fmt.Printf("---------------FSR-B_FK Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
-		fmt.Printf("disk loads:\n%v\n", sumDisk)
-	}
-	return
+	// if !e.Quiet {
+	// 	fmt.Printf("---------------FSR-B_FK Algorithm--------------")
+	// 	fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
+	// 	fmt.Printf("disk loads:\n%v\n", sumDisk)
+	// }
+	return fastestKScheme, sumDisk
 }
 
 // for each failed stripe, randomly pick up k blocks
 func (e *Erasure) findRandomScheme(dist [][]int, replaceMap map[int]int) (
-	randomScheme [][]int) {
+	[][]int, []int) {
 	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
-	randomScheme = make([][]int, stripeNum)
-	maxLoad := 0
+	randomScheme := make([][]int, stripeNum)
 	sumDisk := make([]int, e.DiskNum)
-	sumLoad := 0
 	for s := 0; s < stripeNum; s++ {
 		for i := 0; i < e.K+e.M; i++ {
 			if _, ok := replaceMap[dist[s][i]]; ok {
@@ -146,30 +136,26 @@ func (e *Erasure) findRandomScheme(dist [][]int, replaceMap map[int]int) (
 			})
 			for j := 0; j < e.K; j++ {
 				sumDisk[diskVec[j]]++
-				sumLoad++
-				maxLoad = maxInt(maxLoad, sumDisk[diskVec[j]])
 			}
 			randomScheme[s] = diskVec[:e.K]
 		} else {
 			randomScheme[s] = dist[s]
 		}
 	}
-	if !e.Quiet {
-		fmt.Printf("---------------FSR-B_R Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
-		fmt.Printf("disk loads:\n%v\n", sumDisk)
-	}
-	return
+	// if !e.Quiet {
+	// 	fmt.Printf("---------------FSR-B_R Algorithm--------------")
+	// 	fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
+	// 	fmt.Printf("disk loads:\n%v\n", sumDisk)
+	// }
+	return randomScheme, sumDisk
 }
 
 func (e *Erasure) findBalanceScheme(dist [][]int, replaceMap map[int]int) (
-	balanceScheme [][]int) {
+	[][]int, []int) {
 	stripeNum := len(dist)
-	maxLoad := 0
-	sumLoad := 0
 	failStripeNum := 0
 	failStripeSet := &IntSet{}
-	balanceScheme = make([][]int, stripeNum)
+	balanceScheme := make([][]int, stripeNum)
 	sumDisk := make([]int, e.DiskNum)
 	stripeRedu := make(map[int]int)
 	diskLoads := make([]int, e.DiskNum)
@@ -302,20 +288,19 @@ func (e *Erasure) findBalanceScheme(dist [][]int, replaceMap map[int]int) (
 
 					balanceScheme[s] = append(balanceScheme[s], diskId)
 					sumDisk[diskId]++
-					maxLoad = maxInt(maxLoad, sumDisk[diskId])
-					sumLoad++
 				}
 			}
 		} else {
 			balanceScheme[s] = dist[s]
 		}
 	}
-	if !e.Quiet {
-		fmt.Printf("---------------FSR-B_B Algorithm--------------")
-		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
-		fmt.Printf("disk loads:\n%v\n", sumDisk)
-	}
-	return
+	// if !e.Quiet {
+	// 	// redirect to outsource
+	// 	fmt.Printf("---------------FSR-B_B Algorithm--------------")
+	// 	fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n", maxLoad, sumLoad, avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
+	// 	fmt.Printf("disk loads:\n%v\n", sumDisk)
+	// }
+	return balanceScheme, sumDisk
 }
 
 // the idea is to select k blocks from the stripe
@@ -445,17 +430,25 @@ func (e *Erasure) FullStripeRecoverBlockSelected(fileName string, options *Optio
 	stripeCnt := 0
 	nextStripe := 0
 
-	var scheme [][]int
+	scheme := make([][]int, 0)
+	sumDisk := make([]int, 0)
 	if options.Scheme == FIRST_K {
-		scheme = e.findFirstKScheme(dist, replaceMap)
+		scheme, sumDisk = e.findFirstKScheme(dist, replaceMap)
 	} else if options.Scheme == FASTEST_K {
-		scheme = e.findFastestKScheme(dist, replaceMap)
+		scheme, sumDisk = e.findFastestKScheme(dist, replaceMap)
 	} else if options.Scheme == RANDOM_K {
-		scheme = e.findRandomScheme(dist, replaceMap)
+		scheme, sumDisk = e.findRandomScheme(dist, replaceMap)
 	} else if options.Scheme == BALANCE_K {
-		scheme = e.findBalanceScheme(dist, replaceMap)
+		scheme, sumDisk = e.findBalanceScheme(dist, replaceMap)
 	} else {
-		scheme = e.findFirstKScheme(dist, replaceMap)
+		scheme, sumDisk = e.findFirstKScheme(dist, replaceMap)
+	}
+	if !e.Quiet {
+		// redirect to outsource
+		fmt.Printf("scheme %d\n", options.Scheme)
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n",
+			maxInts(sumDisk), sumInt(sumDisk, 0), avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
+		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	blobBuf := makeArr2DByte(e.ConStripes, int(e.allStripeSize))
 

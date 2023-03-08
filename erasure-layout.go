@@ -37,16 +37,16 @@ func (e *Erasure) generateStripeInfo(fi *fileInfo) {
 		return
 	}
 	stripeNum := int(ceilFracInt64(fi.FileSize, e.dataStripeSize))
-	distNum := ceilFracInt(e.DiskNum, intBit)
+	distNum := ceilFracInt(e.DiskNum, IntBit)
 	for i := 0; i < stripeNum; i++ {
 		dist := fi.Distribution[i]
 		blockToOffset := fi.blockToOffset[i]
 		distBit := make([]uint64, distNum)
 		for j := 0; j < e.K+e.M; j++ {
 			var mask uint64 = 1
-			mask <<= uint64(dist[j] % intBit)
-			distBit[dist[j]/intBit] |= mask
-			// fmt.Printf("%b %d\n", distBit[dist[j]/intBit], distBit[dist[j]/intBit])
+			mask <<= uint64(dist[j] % IntBit)
+			distBit[dist[j]/IntBit] |= mask
+			// fmt.Printf("%b %d\n", distBit[dist[j]/IntBit], distBit[dist[j]/IntBit])
 		}
 		spInfo := &stripeInfo{StripeId: e.StripeNum + int64(i), DistNum: distNum, DistBit: distBit, Dist: dist, BlockToOffset: make([]int, len(blockToOffset))}
 		spInfo.BlockToOffset = blockToOffset
@@ -64,7 +64,7 @@ func (e *Erasure) bitToDist(distBit []uint64, distNum int) []int {
 		cnt := 0
 		for cnt < 64 {
 			if distBit[i]&mask != 0 {
-				dist = append(dist, i*intBit+int(math.Log2(float64(mask))))
+				dist = append(dist, i*IntBit+int(math.Log2(float64(mask))))
 			}
 			mask <<= 1
 			cnt++

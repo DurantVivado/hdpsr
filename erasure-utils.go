@@ -184,7 +184,33 @@ func minInt(args ...int) int {
 	return ret
 }
 
+func minInts(args []int) int {
+	if len(args) == 0 {
+		return 0x7fffffff
+	}
+	ret := args[0]
+	for _, arg := range args {
+		if arg < ret {
+			ret = arg
+		}
+	}
+	return ret
+}
+
 func maxInt(args ...int) int {
+	if len(args) == 0 {
+		return 0xffffffff
+	}
+	ret := args[0]
+	for _, arg := range args {
+		if arg > ret {
+			ret = arg
+		}
+	}
+	return ret
+}
+
+func maxInts(args []int) int {
 	if len(args) == 0 {
 		return 0xffffffff
 	}
@@ -210,6 +236,19 @@ func minFloat64(args ...float64) float64 {
 	return ret
 }
 
+func minFloat64s(args []float64) float64 {
+	if len(args) == 0 {
+		return 0
+	}
+	ret := args[0]
+	for _, arg := range args {
+		if arg < ret {
+			ret = arg
+		}
+	}
+	return ret
+}
+
 func maxFloat64(args ...float64) float64 {
 	if len(args) == 0 {
 		return 0
@@ -223,7 +262,31 @@ func maxFloat64(args ...float64) float64 {
 	return ret
 }
 
+func maxFloat64s(args []float64) float64 {
+	if len(args) == 0 {
+		return 0
+	}
+	ret := args[0]
+	for _, arg := range args {
+		if arg > ret {
+			ret = arg
+		}
+	}
+	return ret
+}
+
 func sumFloat64(args ...float64) float64 {
+	if len(args) == 0 {
+		return 0
+	}
+	ret := float64(0)
+	for _, arg := range args {
+		ret += arg
+	}
+	return ret
+}
+
+func sumFloat64s(args []float64) float64 {
 	if len(args) == 0 {
 		return 0
 	}
