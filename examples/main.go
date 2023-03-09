@@ -128,7 +128,112 @@ func main() {
 			FailDisk: failDisk,
 			FileName: filePath,
 		})
-		_, err = erasure.FullStripeRecover(filePath, &hdpsr.Options{})
+		_, err = erasure.FullStripeRecover(filePath,
+			&hdpsr.Options{
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
+	case "fsr-b_1K":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{
+				Scheme:        hdpsr.FIRST_K,
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
+	case "fsr-b_FK":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{
+				Scheme:        hdpsr.FASTEST_K,
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
+	case "fsr-b_R":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{
+				Scheme:        hdpsr.RANDOM_K,
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
+	case "fsr-b_B", "LB-HDR", "lb-hdr":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.FullStripeRecoverBlockSelected(
+			filePath,
+			&hdpsr.Options{
+				Scheme:        hdpsr.BALANCE_K,
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
+	case "seq":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.StripeScheduledHighDensityRepair(
+			filePath,
+			&hdpsr.Options{
+				Scheme:        hdpsr.SEQUENCE,
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
+	case "SS-HDR", "ss-hdr":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.StripeScheduledHighDensityRepair(
+			filePath,
+			&hdpsr.Options{
+				Scheme:        hdpsr.SS_HDR,
+				WriteToBackup: writeToBackup,
+			})
 		failOnErr(mode, err)
 	case "fsr-old":
 		// recover with stripe
@@ -234,62 +339,6 @@ func main() {
 			filePath,
 			slowLatency,
 			&hdpsr.Options{Scheme: hdpsr.CONTINUOUS})
-		failOnErr(mode, err)
-	case "fsr-b_1K":
-		// recover with stripe
-		err = erasure.ReadConfig()
-		failOnErr(mode, err)
-		erasure.Destroy(&hdpsr.SimOptions{
-			Mode:     failMode,
-			FailNum:  failNum,
-			FailDisk: failDisk,
-			FileName: filePath,
-		})
-		_, err = erasure.FullStripeRecoverBlockSelected(
-			filePath,
-			&hdpsr.Options{Scheme: hdpsr.FIRST_K})
-		failOnErr(mode, err)
-	case "fsr-b_FK":
-		// recover with stripe
-		err = erasure.ReadConfig()
-		failOnErr(mode, err)
-		erasure.Destroy(&hdpsr.SimOptions{
-			Mode:     failMode,
-			FailNum:  failNum,
-			FailDisk: failDisk,
-			FileName: filePath,
-		})
-		_, err = erasure.FullStripeRecoverBlockSelected(
-			filePath,
-			&hdpsr.Options{Scheme: hdpsr.FASTEST_K})
-		failOnErr(mode, err)
-	case "fsr-b_R":
-		// recover with stripe
-		err = erasure.ReadConfig()
-		failOnErr(mode, err)
-		erasure.Destroy(&hdpsr.SimOptions{
-			Mode:     failMode,
-			FailNum:  failNum,
-			FailDisk: failDisk,
-			FileName: filePath,
-		})
-		_, err = erasure.FullStripeRecoverBlockSelected(
-			filePath,
-			&hdpsr.Options{Scheme: hdpsr.RANDOM_K})
-		failOnErr(mode, err)
-	case "fsr-b_B":
-		// recover with stripe
-		err = erasure.ReadConfig()
-		failOnErr(mode, err)
-		erasure.Destroy(&hdpsr.SimOptions{
-			Mode:     failMode,
-			FailNum:  failNum,
-			FailDisk: failDisk,
-			FileName: filePath,
-		})
-		_, err = erasure.FullStripeRecoverBlockSelected(
-			filePath,
-			&hdpsr.Options{Scheme: hdpsr.BALANCE_K})
 		failOnErr(mode, err)
 	case "mfsr":
 		// recover with stripe
@@ -455,8 +504,9 @@ var (
 	intraStripe     int
 	ifLog           bool
 	readBWfromFile  bool
-	slowLatency     int
+	slowLatency     float64
 	slowNum         int
+	writeToBackup   bool
 	// recoveredDiskPath string
 )
 
@@ -469,8 +519,8 @@ func flag_init() {
 	flag.IntVar(&memSize, "mem", 4, "memory size")
 	flag.IntVar(&memSize, "memSize", 4, "memory size")
 
-	flag.IntVar(&slowLatency, "sl", 4, "slow latency")
-	flag.IntVar(&slowLatency, "slowLatency", 4, "slow latency")
+	flag.Float64Var(&slowLatency, "sl", 4, "slow latency")
+	flag.Float64Var(&slowLatency, "slowLatency", 4, "slow latency")
 
 	flag.IntVar(&slowNum, "sn", 4, "the number of slow disks")
 	flag.IntVar(&slowNum, "slowNum", 4, "the number of slow disks")
@@ -541,6 +591,9 @@ func flag_init() {
 	flag.BoolVar(&degrade, "dg", false, "whether degraded read is enabled. In this way, only data shards are recovered.")
 	flag.BoolVar(&degrade, "degrade", false, "whether degraded read is enabled. In this way, only data shards are recovered.")
 
-	flag.BoolVar(&readBWfromFile, "readbw", false, "whether to read disk BANDWIDTH from file.")
+	flag.BoolVar(&readBWfromFile, "readbw", false, "whether read disk BANDWIDTH from file.")
+
+	flag.BoolVar(&writeToBackup, "w2b", false, "whether write recovered data to backup disk.")
+	flag.BoolVar(&writeToBackup, "writeToBackup", false, "whether write recovered data to backup disk.")
 
 }

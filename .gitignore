@@ -18,6 +18,7 @@ examples/conf.json
 examples/main.json
 examples/*.pprof
 examples/diskBW
+examples/LOG_FILE
 profiles/*.pprof
 test/*
 test/.test.conf.json

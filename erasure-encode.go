@@ -195,7 +195,7 @@ func (e *Erasure) EncodeFile(filename string) (*fileInfo, error) {
 	return fi, nil
 }
 
-// split and encode data
+// encodeData splits input data while returning encoded data
 func (e *Erasure) encodeData(data []byte) ([][]byte, error) {
 	if len(data) == 0 {
 		return make([][]byte, e.K+e.M), nil
@@ -210,7 +210,7 @@ func (e *Erasure) encodeData(data []byte) ([][]byte, error) {
 	return encoded, nil
 }
 
-// return final erasure size from original size,
+// stripedFileSize return final erasure size from original size,
 // Every block spans all the data disks and split into shards
 // the shardSize is the same except for the last one
 func (e *Erasure) stripedFileSize(totalLen int64) int64 {
@@ -219,4 +219,95 @@ func (e *Erasure) stripedFileSize(totalLen int64) int64 {
 	}
 	numStripe := ceilFracInt64(totalLen, e.dataStripeSize)
 	return numStripe * e.allStripeSize
+}
+
+// FakeEncodeFile, yeah is intriguing for experimental purpose
+// It not encode the real data but generates `fileInfo` as file with `size` GB, and just generates
+// over-size BLOBs in corresponding disk mounted path, which leads to huge savings both
+// in time and storage.
+// It returns `*fileInfo` and an error. Specify `blocksize` and `conStripe` for better performance.
+func (e *Erasure) FakeEncodeFile(size int) (*fileInfo, error) {
+	filename := fmt.Sprintf("%dG", size)
+	baseFileName := filepath.Base(filename)
+	if _, ok := e.fileMap.Load(baseFileName); ok && !e.Override {
+		return nil, fmt.Errorf("the file %s has already been in the file system, if you wish to override, please attach `-o`",
+			baseFileName)
+	}
+	fi := &fileInfo{}
+	fi.FileId = int64(e.getFileNum())
+	fi.FileName = baseFileName
+	fileSize := int64(size) * GiB
+	fi.FileSize = fileSize
+
+	//create layout for the file
+	e.generateLayout(fi)
+	// e.generateStripeInfo(fi)
+	dist := fi.Distribution
+	diskLoads := make([]int, e.DiskNum)
+	for s := 0; s < len(dist); s++ {
+		for i := 0; i < e.K+e.M; i++ {
+			diskLoads[dist[s][i]]++
+		}
+	}
+	fmt.Printf("diskloads:%v\n", diskLoads)
+	//encode the data
+	stripeNum := int(ceilFracInt64(fileSize, e.dataStripeSize))
+	//we split file into stripes and randomly distribute the blocks to various disks
+	//and for stripes of the same disk, we concatenate all blocks to create the sole file
+	//for accelerating, we start multiple goroutines
+	//The last stripe will be refilled with zeros
+	// ofs := make([]*os.File, e.DiskNum)
+	//first open relevant file resources
+	erg := new(errgroup.Group)
+	//save the blob
+	for i := range e.diskInfos[:e.DiskNum] {
+		i := i
+		//we have to make sure the dist is appended to fi.Distribution in order
+		erg.Go(func() error {
+			folderPath := filepath.Join(e.diskInfos[i].mntPath, baseFileName)
+			//if override is specified, we override previous data
+			if e.Override {
+				if err := os.RemoveAll(folderPath); err != nil {
+					return err
+				}
+			}
+			if err := os.Mkdir(folderPath, 0777); err != nil {
+				return errDataDirExist
+			}
+			// use linux dd to accelerate write
+			cmd := fmt.Sprintf("dd if=/dev/zero of=%s/BLOB bs=%d count=%d",
+				folderPath, e.BlockSize, diskLoads[i])
+			_, err := execShell(cmd)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+	if err := erg.Wait(); err != nil {
+		return nil, err
+	}
+
+	//record the file meta
+	//transform map into array for json marshaling
+	fi.blockInfos = make([][]*blockInfo, stripeNum)
+	e.StripeNum += int64(stripeNum)
+	// for i := 0; i < len(e.StripeInDisk); i++ {
+	// 	fmt.Println(e.StripeInDisk[i], len(e.StripeInDisk[i]))
+	// }
+	for row := range fi.Distribution {
+		fi.blockInfos[row] = make([]*blockInfo, e.K+e.M)
+		for line := range fi.Distribution[row] {
+			fi.blockInfos[row][line] = &blockInfo{bstat: blkOK}
+		}
+	}
+	e.fileMap.Store(baseFileName, fi)
+	if !e.Quiet {
+		log.Println(baseFileName, " successfully encoded. encoding size ",
+			e.stripedFileSize(fileSize), "bytes")
+	}
+	// for i := 0; i < e.DiskNum; i++ {
+	// 	fmt.Println(len(e.diskInfos[i].stripeInDisk))
+	// }
+	return fi, nil
 }

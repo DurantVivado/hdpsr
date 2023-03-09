@@ -139,7 +139,7 @@ func TestSS_HDR(t *testing.T) {
 	schemes := []int{SEQUENCE, SS_HDR}
 	for _, scheme := range schemes {
 		start := time.Now()
-		rm, err := testEC.SS_HDR(
+		rm, err := testEC.StripeScheduledHighDensityRepair(
 			fileName,
 			&Options{Scheme: scheme})
 		if err != nil {

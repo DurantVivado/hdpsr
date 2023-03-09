@@ -13,6 +13,41 @@ import (
 
 //-------------------------TEST UNIT----------------------------
 
+func TestFakeEncodeFile(t *testing.T) {
+	rand.Seed(1000000007)
+	size := 100 // 100G
+	testEC := &Erasure{
+		K:               4,
+		M:               2,
+		DiskNum:         16,
+		BlockSize:       64 * MiB,
+		MemSize:         8,
+		ConfigFile:      testConfigFile,
+		DiskMountPath:   testDiskMountPath,
+		DiskBWPath:      testDiskBWPath,
+		ReplicateFactor: 3,
+		ConStripes:      100,
+		Override:        true,
+		Quiet:           false,
+		ReadBWfromFile:  true,
+	}
+	err = testEC.ReadDiskPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.InitSystem(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err := testEC.FakeEncodeFile(size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testEC.WriteConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 func TestEncodeDecodeNormal(t *testing.T) {
 	//we generate temp data and encode it into real storage sytem
 	//after that, all temporary file should be deleted

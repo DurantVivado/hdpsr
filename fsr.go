@@ -85,41 +85,43 @@ func (e *Erasure) FullStripeRecover(filename string, options *Options) (
 		return nil, errNotEnoughBackupForRecovery
 	}
 	rfs := make([]*os.File, failNum)
-	//open restore path IOs
-	for i, disk := range e.diskInfos[e.DiskNum : e.DiskNum+int(failNum)] {
-		i := i
-		disk := disk
-		erg.Go(func() error {
-			folderPath := filepath.Join(disk.mntPath, baseFileName)
-			blobPath := filepath.Join(folderPath, "BLOB")
-			if e.Override {
-				if err := os.RemoveAll(folderPath); err != nil {
+	if options.WriteToBackup {
+		//open restore path IOs
+		for i, disk := range e.diskInfos[e.DiskNum : e.DiskNum+int(failNum)] {
+			i := i
+			disk := disk
+			erg.Go(func() error {
+				folderPath := filepath.Join(disk.mntPath, baseFileName)
+				blobPath := filepath.Join(folderPath, "BLOB")
+				if e.Override {
+					if err := os.RemoveAll(folderPath); err != nil {
+						return err
+					}
+				}
+				if err := os.Mkdir(folderPath, 0666); err != nil {
+					return errDataDirExist
+				}
+				rfs[i], err = os.OpenFile(blobPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+				if err != nil {
 					return err
 				}
-			}
-			if err := os.Mkdir(folderPath, 0666); err != nil {
-				return errDataDirExist
-			}
-			rfs[i], err = os.OpenFile(blobPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-			if err != nil {
-				return err
-			}
 
-			return nil
-		})
-	}
-	if err := erg.Wait(); err != nil {
-		if !e.Quiet {
-			log.Printf("create BLOB failed %s", err.Error())
+				return nil
+			})
 		}
-	}
-	defer func() {
-		for i := 0; i < int(failNum); i++ {
-			if rfs[i] != nil {
-				rfs[i].Close()
+		if err := erg.Wait(); err != nil {
+			if !e.Quiet {
+				log.Printf("create BLOB failed %s", err.Error())
 			}
 		}
-	}()
+		defer func() {
+			for i := 0; i < int(failNum); i++ {
+				if rfs[i] != nil {
+					rfs[i].Close()
+				}
+			}
+		}()
+	}
 	if int(alive) == e.DiskNum {
 		if !e.Quiet {
 			log.Println("start reading blocks")
@@ -204,35 +206,37 @@ func (e *Erasure) FullStripeRecover(filename string, options *Options) (
 					if err != nil {
 						return err
 					}
-					//write the Blob to restore paths
-					egp := e.errgroupPool.Get().(*errgroup.Group)
-					defer e.errgroupPool.Put(egp)
-					for i := 0; i < e.K+e.M; i++ {
-						i := i
-						diskId := dist[stripeNo][i]
-						if v, ok := replaceMap[diskId]; ok {
-							restoreId := v - e.DiskNum
-							writeOffset := fi.blockToOffset[stripeNo][i]
-							egp.Go(func() error {
-								_, err := rfs[restoreId].WriteAt(splitData[i],
-									int64(writeOffset)*e.BlockSize)
-								if err != nil {
-									return err
-								}
-								if e.diskInfos[diskId].ifMetaExist {
-									newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
-									if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+					if options.WriteToBackup {
+						//write the Blob to restore paths
+						egp := e.errgroupPool.Get().(*errgroup.Group)
+						defer e.errgroupPool.Put(egp)
+						for i := 0; i < e.K+e.M; i++ {
+							i := i
+							diskId := dist[stripeNo][i]
+							if v, ok := replaceMap[diskId]; ok {
+								restoreId := v - e.DiskNum
+								writeOffset := fi.blockToOffset[stripeNo][i]
+								egp.Go(func() error {
+									_, err := rfs[restoreId].WriteAt(splitData[i],
+										int64(writeOffset)*e.BlockSize)
+									if err != nil {
 										return err
 									}
-								}
-								return nil
+									if e.diskInfos[diskId].ifMetaExist {
+										newMetapath := filepath.Join(e.diskInfos[restoreId].mntPath, "META")
+										if _, err := copyFile(e.ConfigFile, newMetapath); err != nil {
+											return err
+										}
+									}
+									return nil
 
-							})
+								})
 
+							}
 						}
-					}
-					if err := egp.Wait(); err != nil {
-						return err
+						if err := egp.Wait(); err != nil {
+							return err
+						}
 					}
 				}
 				return nil

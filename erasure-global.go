@@ -146,10 +146,10 @@ type Erasure struct {
 	StripeNum int64 `json:"stripeNum"`
 
 	// stripeList
-	Stripes []*stripeInfo `json:"stripeList"`
+	Stripes []*stripeInfo //`json:"stripeList"`
 
 	// stripe id
-	StripeInDisk [][]int64 `json:"stripeInDisk"`
+	StripeInDisk [][]int64 //`json:"stripeInDisk"`
 
 	// the path of file recording all disks path
 	DiskMountPath string `json:"-"`
@@ -248,6 +248,8 @@ type Options struct {
 	warning bool
 	// intra stripe parallelism
 	intraStripe int
+	// write to backup disk or else
+	WriteToBackup bool
 }
 
 // SimOptions defines the parameters for simulation

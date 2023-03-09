@@ -1,6 +1,6 @@
 #!/bin/bash
 # file-related parameters
-filename=test-64Mx160
+filename=100G
 inputdir=/mnt/disk12/
 outputdir=/mnt/disk12/
 newfilename=new-64Mx16
@@ -32,7 +32,7 @@ sl=4
 # 64M 67108864
 # 128M 134217728
 # 256M 268435456
-
+LOG_FILE="test.log"
 
 go build -o main ./main.go
 now=`date +%c` 
@@ -40,30 +40,29 @@ echo -e "sh: The program started at $now."
 #------------------------encode a file--------------------------
 mode="recover"
 if [ $mode == "recover" ]; then
-     
     #---------------------------repair the file----------------------
     # recover a file
     # methods=("fsr" "fsr-so_c" "fsr-so_g")
     # methods=("fsr" "fsr-b_1K" "fsr-b_FK" "fsr-b_R" "fsr-b_B")
     # methods=("fsr" "mpsrap" "mpsras" "mpsrpa")
     # methods=("fsr" "fsr-old")
-    methods=("fsr" "psr-so_g" "fsr-so_g")
+    methods=("fsr" "fsr-b_1K" "fsr-b_R" "fsr-b_B")
 
     #to avoid serendipity, we shuffle the order of methods
     #for `RAND_TIME` time(s)
-    RAND_TIME=10
+    RAND_TIME=1
     for ((i=0;i<$RAND_TIME;i++));do
-        echo -e "\n\nsh: experiment $i"
+        echo -e "\n\nsh: experiment $i" >> LOG_FILE
         shuffled_methods=(`shuf -e ${methods[@]}`)
         for method in ${shuffled_methods[@]};do
             # drop the cache to make the result more convincing
             ../drop_cache.sh
-            echo -e "method:$method" 
+            echo -e "\nmethod:$method" >> LOG_FILE
             start=`date +%s%N`
             ./main -md $method -fmd diskFail -fd $fd -f $inputdir$filename -o -readbw -q -sl $sl -sn $sn
             end=`date +%s%N`
             cost=`echo $start $end | awk '{ printf("%.3f", ($2-$1)/1000000000) }'`
-            echo -e "sh: previous procedure consumed $cost s"
+            echo -e "sh: previous procedure consumed $cost s" >> LOG_FILE
         done
     done
 else

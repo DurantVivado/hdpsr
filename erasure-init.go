@@ -146,6 +146,8 @@ func (e *Erasure) InitSystem(assume bool) error {
 	}
 	//replicate the config files
 
+	e.dataStripeSize = int64(e.K) * e.BlockSize
+	e.allStripeSize = int64(e.K+e.M) * e.BlockSize
 	if e.ReplicateFactor < 1 {
 		return errInvalidReplicateFactor
 	}
@@ -283,6 +285,8 @@ func (e *Erasure) ReadConfig() error {
 			return err
 		}
 	}
+	e.dataStripeSize = int64(e.K) * e.BlockSize
+	e.allStripeSize = int64(e.K+e.M) * e.BlockSize
 	//initialize the ReedSolomon Code
 	e.enc, err = reedsolomon.New(e.K, e.M,
 		reedsolomon.WithAutoGoroutines(int(e.BlockSize)),
@@ -292,8 +296,6 @@ func (e *Erasure) ReadConfig() error {
 	if err != nil {
 		return err
 	}
-	e.dataStripeSize = int64(e.K) * e.BlockSize
-	e.allStripeSize = int64(e.K+e.M) * e.BlockSize
 	total, used, free := getMemUsage()
 	// without considering the memory swap
 	if int64(e.MemSize) >= int64(0.8*float64(total)) || int64(e.MemSize*GiB) < e.allStripeSize {
