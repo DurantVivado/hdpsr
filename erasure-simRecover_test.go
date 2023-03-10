@@ -49,6 +49,9 @@ func TestLB_HDR_SIM(t *testing.T) {
 			}
 			failDiskSet := &[]int{0}
 			dist := e.genStripeDist(stripeNum, seed)
+			fi := &fileInfo{
+				Distribution: dist,
+			}
 			replaceMap := make(map[int]int, 0)
 			i := 0
 			for disk := range *failDiskSet {
@@ -62,13 +65,13 @@ func TestLB_HDR_SIM(t *testing.T) {
 			avgMaxLoad_FK, avgMaxLoad_RK, avgMaxLoad_BK := float64(0), float64(0), float64(0)
 			avgSDLoad_FK, avgSDLoad_RK, avgSDLoad_BK := float64(0), float64(0), float64(0)
 			for i := 0; i < 10; i++ {
-				_, sumDisk = e.findFirstKScheme(dist, replaceMap)
+				_, sumDisk = e.findFirstKScheme(fi, replaceMap)
 				avgMaxLoad_FK += float64(maxInts(sumDisk[1:]))
 				avgSDLoad_FK += calcSDInt(sumDisk[1:])
-				_, sumDisk = e.findRandomScheme(dist, replaceMap)
+				_, sumDisk = e.findRandomScheme(fi, replaceMap)
 				avgMaxLoad_RK += float64(maxInts(sumDisk[1:]))
 				avgSDLoad_RK += calcSDInt(sumDisk[1:])
-				_, sumDisk = e.findBalanceScheme(dist, replaceMap)
+				_, sumDisk = e.findBalanceScheme(fi, replaceMap)
 				avgMaxLoad_BK += float64(maxInts(sumDisk[1:]))
 				avgSDLoad_BK += calcSDInt(sumDisk[1:])
 			}

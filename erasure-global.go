@@ -232,7 +232,11 @@ type stripeInfo struct {
 
 type blockStat uint8
 type blockInfo struct {
-	bstat blockStat
+	bstat        blockStat
+	stripeId     int
+	diskId       int
+	stripeOffset int
+	diskOffset   int
 }
 
 // Options define the parameters for read and recover mode
@@ -250,6 +254,8 @@ type Options struct {
 	intraStripe int
 	// write to backup disk or else
 	WriteToBackup bool
+	Method1       string
+	Method2       string
 }
 
 // SimOptions defines the parameters for simulation

@@ -67,7 +67,8 @@ func TestFindBalanceScheme(t *testing.T) {
 		rm, err := testEC.FullStripeRecoverBlockSelected(
 			fileName,
 			&Options{
-				Scheme: scheme,
+				Scheme:        scheme,
+				WriteToBackup: true,
 			},
 		)
 		if err != nil {

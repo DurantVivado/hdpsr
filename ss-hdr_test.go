@@ -48,6 +48,9 @@ func TestStripeSchedule(t *testing.T) {
 			e.allStripeSize = int64(e.K+e.M) * e.BlockSize
 			failDiskSet := &[]int{0}
 			dist := e.genStripeDist(stripeNum, seed)
+			fi := &fileInfo{
+				Distribution: dist,
+			}
 			replaceMap := make(map[int]int, 0)
 			i := 0
 			for disk := range *failDiskSet {
@@ -56,13 +59,13 @@ func TestStripeSchedule(t *testing.T) {
 			}
 			var minTimeSlice int
 			w.Write([]string{"Scheme", "avgMinTimeSlice"})
-
+			scheme, _ := e.findFirstKScheme(fi, replaceMap)
 			// iterate ten times and average the outcome
 			avgMinT_SEQ, avgMinT_SS_HDR := float64(0), float64(0)
 			for i := 0; i < 10; i++ {
-				_, minTimeSlice = e.getMinimalTimeSequence(dist, replaceMap)
+				_, minTimeSlice = e.getMinimalTimeSequence(scheme, replaceMap)
 				avgMinT_SEQ += float64(minTimeSlice)
-				_, minTimeSlice = e.getMinimalTimeStripeScheduled(dist, replaceMap)
+				_, minTimeSlice = e.getMinimalTimeStripeScheduled(scheme, replaceMap)
 				avgMinT_SS_HDR += float64(minTimeSlice)
 			}
 			avgMinT_SEQ /= 10
@@ -79,20 +82,20 @@ func TestStripeSchedule(t *testing.T) {
 	}
 }
 
-func TestSS_HDR(t *testing.T) {
+func TestStripeScheduleRecover(t *testing.T) {
 	testEC := &Erasure{
-		K:               6,
+		K:               4,
 		M:               2,
-		DiskNum:         12,
-		BlockSize:       512 * KiB,
-		MemSize:         2,
+		DiskNum:         16,
+		BlockSize:       64 * MiB,
+		MemSize:         8,
 		ConfigFile:      testConfigFile,
 		DiskMountPath:   testDiskMountPath,
 		DiskBWPath:      testDiskBWPath,
 		ReplicateFactor: 3,
 		ConStripes:      100,
 		Override:        true,
-		Quiet:           true,
+		Quiet:           false,
 		ReadBWfromFile:  true,
 	}
 	err = testEC.ReadDiskPath()
@@ -103,60 +106,40 @@ func TestSS_HDR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// err = testEC.InitSystem(true)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
 	err = testEC.ReadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// err = testEC.getDiskBWFIO()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	fileSize := int64(1 * GiB)
-	fileName := fmt.Sprintf("temp-%d", fileSize)
-	inpath := filepath.Join("input", fileName)
-	// slowLatency := 0.0
-	err = generateRandomFileBySize(inpath, fileSize)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// defer delTempDir()
-	// _, err := testEC.EncodeFile(inpath)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// err = testEC.WriteConfig()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
 	testEC.Destroy(&SimOptions{
 		Mode:     "diskFail",
 		FailDisk: "0",
 	})
-	schemes := []int{SEQUENCE, SS_HDR}
-	for _, scheme := range schemes {
-		start := time.Now()
-		rm, err := testEC.StripeScheduledHighDensityRepair(
-			fileName,
-			&Options{Scheme: scheme})
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Printf("Scheme %d costs: %v\n", scheme, time.Since(start))
-		for old, new := range rm {
-			oldPath := filepath.Join(old, fileName, "BLOB")
-			newPath := filepath.Join(new, fileName, "BLOB")
-			if ok, err := checkFileIfSame(newPath, oldPath); !ok && err == nil {
-				t.Error(err)
-			} else if err != nil {
+	fileSize := int64(5 * GiB)
+	fileName := fmt.Sprintf("temp-%d", fileSize)
+	method1 := []string{"FIRST_K", "RANDOM_K", "LB_HDR"}
+	method2 := []string{"SEQ", "SS_HDR"}
+	for _, m1 := range method1 {
+		for _, m2 := range method2 {
+			start := time.Now()
+			rm, err := testEC.StripeScheduleRecover(
+				fileName,
+				&Options{Method1: m1, Method2: m2, WriteToBackup: true})
+			if err != nil {
 				t.Fatal(err)
 			}
-		}
-		if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {
-			t.Fatal(err)
+			fmt.Printf("[%s, %s] costs: %v\n", m1, m2, time.Since(start))
+			for old, new := range rm {
+				oldPath := filepath.Join(old, fileName, "BLOB")
+				newPath := filepath.Join(new, fileName, "BLOB")
+				if ok, err := checkFileIfSame(newPath, oldPath); !ok && err == nil {
+					t.Fatal(err)
+				} else if err != nil {
+					t.Fatal(err)
+				}
+			}
+			// if _, err := copyFile(testDiskMountPath+".old", testDiskMountPath); err != nil {
+			// 	t.Fatal(err)
+			// }
 		}
 	}
 }

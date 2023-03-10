@@ -118,6 +118,23 @@ func main() {
 		})
 		_, err = erasure.Recover(&hdpsr.Options{})
 		failOnErr(mode, err)
+	case "hybrid":
+		// recover with stripe
+		err = erasure.ReadConfig()
+		failOnErr(mode, err)
+		erasure.Destroy(&hdpsr.SimOptions{
+			Mode:     failMode,
+			FailNum:  failNum,
+			FailDisk: failDisk,
+			FileName: filePath,
+		})
+		_, err = erasure.HybridRecover(filePath,
+			&hdpsr.Options{
+				Method1:       method1,
+				Method2:       method2,
+				WriteToBackup: writeToBackup,
+			})
+		failOnErr(mode, err)
 	case "fsr":
 		// recover with stripe
 		err = erasure.ReadConfig()
@@ -201,7 +218,7 @@ func main() {
 				WriteToBackup: writeToBackup,
 			})
 		failOnErr(mode, err)
-	case "seq":
+	case "seq", "SEQ":
 		// recover with stripe
 		err = erasure.ReadConfig()
 		failOnErr(mode, err)
@@ -507,6 +524,8 @@ var (
 	slowLatency     float64
 	slowNum         int
 	writeToBackup   bool
+	method1         string
+	method2         string
 	// recoveredDiskPath string
 )
 
@@ -596,4 +615,6 @@ func flag_init() {
 	flag.BoolVar(&writeToBackup, "w2b", false, "whether write recovered data to backup disk.")
 	flag.BoolVar(&writeToBackup, "writeToBackup", false, "whether write recovered data to backup disk.")
 
+	flag.StringVar(&method1, "md1", "fsr-b_1k", "method1")
+	flag.StringVar(&method2, "md2", "SEQ", "method2")
 }

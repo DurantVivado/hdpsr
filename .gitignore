@@ -14,8 +14,7 @@ examples/test
 examples/main
 examples/output
 examples/*.old
-examples/conf.json
-examples/main.json
+examples/*.json
 examples/*.pprof
 examples/diskBW
 examples/LOG_FILE

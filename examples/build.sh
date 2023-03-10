@@ -24,6 +24,8 @@ fd=0
 sn=4
 #slowLatency
 sl=4
+#conStripe
+cs=1
 # 4k 4096
 # 1M 1048576
 # 4M 4194304
@@ -36,33 +38,32 @@ LOG_FILE="test.log"
 
 go build -o main ./main.go
 now=`date +%c` 
-echo -e "sh: The program started at $now."  
+echo -e "sh: The program started at $now." >> LOG_FILE
 #------------------------encode a file--------------------------
 mode="recover"
 if [ $mode == "recover" ]; then
     #---------------------------repair the file----------------------
     # recover a file
-    # methods=("fsr" "fsr-so_c" "fsr-so_g")
-    # methods=("fsr" "fsr-b_1K" "fsr-b_FK" "fsr-b_R" "fsr-b_B")
-    # methods=("fsr" "mpsrap" "mpsras" "mpsrpa")
-    # methods=("fsr" "fsr-old")
-    methods=("fsr" "fsr-b_1K" "fsr-b_R" "fsr-b_B")
-
+    methods1=("FIRST_K" "RANDOM_K" "LB_HDR")
+    methods2=("SEQ" "SS_HDR")
+    # methods=("fsr" "SEQ" "ss-hdr")
     #to avoid serendipity, we shuffle the order of methods
     #for `RAND_TIME` time(s)
     RAND_TIME=1
     for ((i=0;i<$RAND_TIME;i++));do
         echo -e "\n\nsh: experiment $i" >> LOG_FILE
-        shuffled_methods=(`shuf -e ${methods[@]}`)
-        for method in ${shuffled_methods[@]};do
-            # drop the cache to make the result more convincing
-            ../drop_cache.sh
-            echo -e "\nmethod:$method" >> LOG_FILE
-            start=`date +%s%N`
-            ./main -md $method -fmd diskFail -fd $fd -f $inputdir$filename -o -readbw -q -sl $sl -sn $sn
-            end=`date +%s%N`
-            cost=`echo $start $end | awk '{ printf("%.3f", ($2-$1)/1000000000) }'`
-            echo -e "sh: previous procedure consumed $cost s" >> LOG_FILE
+        # shuffled_methods=(`shuf -e ${methods[@]}`)
+        for method1 in ${methods1[@]};do
+            for method2 in ${methods2[@]};do
+                # drop the cache to make the result more convincing
+                ../drop_cache.sh
+                echo -e "\nmethod1:$method1 method2:$method2" >> LOG_FILE
+                start=`date +%s%N`
+                ./main -md hybrid -md1 $method1 -md2 $method2 -fmd diskFail -fd $fd -f $inputdir$filename -o -readbw -q -sl $sl -sn $sn -cs $cs
+                end=`date +%s%N`
+                cost=`echo $start $end | awk '{ printf("%.3f", ($2-$1)/1000000000) }'`
+                echo -e "sh: previous procedure consumed $cost s" >> LOG_FILE
+            done
         done
     done
 else
