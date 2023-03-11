@@ -128,7 +128,7 @@ func main() {
 			FailDisk: failDisk,
 			FileName: filePath,
 		})
-		_, err = erasure.HybridRecover(filePath,
+		_, err = erasure.StripeScheduleRecover(filePath,
 			&hdpsr.Options{
 				Method1:       method1,
 				Method2:       method2,
@@ -228,7 +228,7 @@ func main() {
 			FailDisk: failDisk,
 			FileName: filePath,
 		})
-		_, err = erasure.StripeScheduledHighDensityRepair(
+		_, err = erasure.StripeScheduleRecover(
 			filePath,
 			&hdpsr.Options{
 				Scheme:        hdpsr.SEQUENCE,
@@ -245,7 +245,7 @@ func main() {
 			FailDisk: failDisk,
 			FileName: filePath,
 		})
-		_, err = erasure.StripeScheduledHighDensityRepair(
+		_, err = erasure.StripeScheduleRecover(
 			filePath,
 			&hdpsr.Options{
 				Scheme:        hdpsr.SS_HDR,

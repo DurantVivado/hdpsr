@@ -48,9 +48,10 @@ func TestLB_HDR_SIM(t *testing.T) {
 				ReadBWfromFile:  true,
 			}
 			failDiskSet := &[]int{0}
-			dist := e.genStripeDist(stripeNum, seed)
+			dist, blk2off := e.genStripeDist(stripeNum, seed)
 			fi := &fileInfo{
-				Distribution: dist,
+				Distribution:  dist,
+				blockToOffset: blk2off,
 			}
 			replaceMap := make(map[int]int, 0)
 			i := 0

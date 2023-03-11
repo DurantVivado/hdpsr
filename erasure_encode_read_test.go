@@ -19,7 +19,7 @@ func TestFakeEncodeFile(t *testing.T) {
 	testEC := &Erasure{
 		K:               4,
 		M:               2,
-		DiskNum:         16,
+		DiskNum:         8,
 		BlockSize:       64 * MiB,
 		MemSize:         8,
 		ConfigFile:      testConfigFile,

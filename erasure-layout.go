@@ -2,13 +2,20 @@ package hdpsr
 
 import "math"
 
-func (e *Erasure) genStripeDist(stripeNum int, seed int64) [][]int {
+func (e *Erasure) genStripeDist(stripeNum int, seed int64) ([][]int, [][]int) {
 	dist := make([][]int, stripeNum)
+	blockToOffset := makeArr2DInt(stripeNum, e.K+e.M)
+	countSum := make([]int, e.DiskNum)
 	for i := 0; i < stripeNum; i++ {
 		dist[i] = genRandArrIntSeed(e.DiskNum, 0, seed)[:e.K+e.M]
 		seed += 1
+		for j := 0; j < e.K+e.M; j++ {
+			diskId := dist[i][j]
+			blockToOffset[i][j] = countSum[diskId]
+			countSum[diskId]++
+		}
 	}
-	return dist
+	return dist, blockToOffset
 }
 
 // Examplar random distribution layout generator

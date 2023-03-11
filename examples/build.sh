@@ -18,7 +18,7 @@ mem=32
 fn=1
 #specified failed disk, starting from 0, 
 # use comma to split
-fd=0
+fd=0,1
 
 #slowNumber
 sn=4

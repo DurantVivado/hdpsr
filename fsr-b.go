@@ -44,27 +44,29 @@ func (e *Erasure) findFirstKScheme(fi *fileInfo, replaceMap map[int]int) (
 			}
 		}
 	}
-	failStripeNum := failStripeSet.Size()
-	firstKScheme := make([][]*blockInfo, failStripeNum)
-	for s := range *failStripeSet {
-		for i := 0; i < e.K+e.M; i++ {
-			diskId := dist[s][i]
-			if _, ok := replaceMap[diskId]; !ok {
-				if len(firstKScheme[s]) < e.K {
-					firstKScheme[s] = append(firstKScheme[s],
-						&blockInfo{
-							stripeId:     s,
-							diskId:       diskId,
-							stripeOffset: i,
-							diskOffset:   blk2Off[s][i],
-						})
-					sumDisk[diskId]++
-				} else {
-					break
+	firstKScheme := make([][]*blockInfo, stripeNum)
+	for s := 0; s < stripeNum; s++ {
+		if failStripeSet.Exist(s) {
+			for i := 0; i < e.K+e.M; i++ {
+				diskId := dist[s][i]
+				if _, ok := replaceMap[diskId]; !ok {
+					if len(firstKScheme[s]) < e.K {
+						firstKScheme[s] = append(firstKScheme[s],
+							&blockInfo{
+								stripeId:     s,
+								diskId:       diskId,
+								stripeOffset: i,
+								diskOffset:   blk2Off[s][i],
+							})
+						sumDisk[diskId]++
+					} else {
+						break
+					}
 				}
 			}
+		} else {
+			firstKScheme[s] = nil
 		}
-
 	}
 	// if !e.Quiet {
 	// 	fmt.Printf("---------------FSR-B_1K Algorithm--------------")
@@ -116,6 +118,8 @@ func (e *Erasure) findFastestKScheme(fi *fileInfo, replaceMap map[int]int) (
 				sumDisk[diskVec[j].diskId]++
 			}
 			fastestKScheme[s] = diskVec[:e.K]
+		} else {
+			fastestKScheme[s] = nil
 		}
 	}
 	// if !e.Quiet {
@@ -136,7 +140,6 @@ func (e *Erasure) findRandomScheme(fi *fileInfo, replaceMap map[int]int) (
 	blk2Off := fi.blockToOffset
 	stripeNum := len(dist)
 	failStripeSet := &IntSet{}
-	randomScheme := make([][]*blockInfo, stripeNum)
 	sumDisk := make([]int, e.DiskNum)
 	for s := 0; s < stripeNum; s++ {
 		for i := 0; i < e.K+e.M; i++ {
@@ -146,6 +149,7 @@ func (e *Erasure) findRandomScheme(fi *fileInfo, replaceMap map[int]int) (
 			}
 		}
 	}
+	randomScheme := make([][]*blockInfo, stripeNum)
 	for s := 0; s < stripeNum; s++ {
 		if failStripeSet.Exist(s) {
 			diskVec := make([]*blockInfo, 0)
@@ -168,6 +172,8 @@ func (e *Erasure) findRandomScheme(fi *fileInfo, replaceMap map[int]int) (
 				sumDisk[diskVec[j].diskId]++
 			}
 			randomScheme[s] = diskVec[:e.K]
+		} else {
+			randomScheme[s] = nil
 		}
 	}
 	// if !e.Quiet {
@@ -312,7 +318,6 @@ func (e *Erasure) findBalanceScheme(fi *fileInfo, replaceMap map[int]int) (
 		}
 		last_available = available
 	}
-
 	for s := 0; s < stripeNum; s++ {
 		if failStripeSet.Exist(s) {
 			for i := 0; i < e.K+e.M; i++ {
@@ -329,6 +334,8 @@ func (e *Erasure) findBalanceScheme(fi *fileInfo, replaceMap map[int]int) (
 					sumDisk[diskId]++
 				}
 			}
+		} else {
+			balanceScheme[s] = nil
 		}
 	}
 	// if !e.Quiet {

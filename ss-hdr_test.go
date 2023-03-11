@@ -47,9 +47,10 @@ func TestStripeSchedule(t *testing.T) {
 			e.dataStripeSize = int64(e.K) * e.BlockSize
 			e.allStripeSize = int64(e.K+e.M) * e.BlockSize
 			failDiskSet := &[]int{0}
-			dist := e.genStripeDist(stripeNum, seed)
+			dist, blk2off := e.genStripeDist(stripeNum, seed)
 			fi := &fileInfo{
-				Distribution: dist,
+				Distribution:  dist,
+				blockToOffset: blk2off,
 			}
 			replaceMap := make(map[int]int, 0)
 			i := 0
@@ -116,7 +117,7 @@ func TestStripeScheduleRecover(t *testing.T) {
 	})
 	fileSize := int64(5 * GiB)
 	fileName := fmt.Sprintf("temp-%d", fileSize)
-	method1 := []string{"FIRST_K", "RANDOM_K", "LB_HDR"}
+	method1 := []string{"FIRST_K", "LB_HDR", "RANDOM_K"}
 	method2 := []string{"SEQ", "SS_HDR"}
 	for _, m1 := range method1 {
 		for _, m2 := range method2 {

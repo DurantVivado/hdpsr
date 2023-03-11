@@ -32,9 +32,12 @@ func (e *Erasure) getMinimalTimeSequence(scheme [][]*blockInfo, replaceMap map[i
 	if len(scheme) == 0 {
 		return nil, 0
 	}
-	failStripeNum := len(scheme)
-	distBit := make([][]uint64, failStripeNum) // every stripe has GROUPNUM * 64 bits
-	for s := 0; s < failStripeNum; s++ {
+	stripeNum := len(scheme)
+	distBit := make([][]uint64, stripeNum) // every stripe has GROUPNUM * 64 bits
+	for s := 0; s < stripeNum; s++ {
+		if scheme[s] == nil {
+			continue
+		}
 		mask := uint64(1)
 		distBit[s] = make([]uint64, GROUPNUM)
 		for j := 0; j < e.K; j++ {
@@ -45,19 +48,24 @@ func (e *Erasure) getMinimalTimeSequence(scheme [][]*blockInfo, replaceMap map[i
 	}
 	minTimeSlice = 1
 	stripeOrder = make(map[int][]int)
-	i := 0
-	for i < failStripeNum {
+	i, t := 0, 1
+	for i < stripeNum {
+		if distBit[i] == nil {
+			i++
+			continue
+		}
 		// if current stripe conflicts with the next stripe
-		slice := []int{scheme[i][0].stripeId}
+		slice := []int{i}
 		j := i + 1
-		if j < failStripeNum && !isConflictBit(&distBit, i, j) {
-			slice = append(slice, scheme[j][0].stripeId)
+		if j < stripeNum && distBit[j] != nil && !isConflictBit(&distBit, i, j) {
+			slice = append(slice, j)
 			j++
 		}
-		stripeOrder[minTimeSlice] = slice
-		minTimeSlice++
+		stripeOrder[t] = slice
+		t++
 		i = j
 	}
+	minTimeSlice = len(stripeOrder)
 	return
 }
 
@@ -70,6 +78,9 @@ func (e *Erasure) getMinimalTimeStripeScheduled(scheme [][]*blockInfo, replaceMa
 	failStripeNum := len(scheme)
 	distBit := make([][]uint64, failStripeNum) // every stripe has GROUPNUM * 64 bits
 	for s := 0; s < failStripeNum; s++ {
+		if scheme[s] == nil {
+			continue
+		}
 		mask := uint64(1)
 		distBit[s] = make([]uint64, GROUPNUM)
 		for j := 0; j < e.K; j++ {
@@ -80,7 +91,13 @@ func (e *Erasure) getMinimalTimeStripeScheduled(scheme [][]*blockInfo, replaceMa
 	}
 	edgeNum := 0
 	for i := range scheme {
+		if scheme[i] == nil {
+			continue
+		}
 		for j := range scheme[i+1:] {
+			if scheme[j] == nil {
+				continue
+			}
 			//if two nodes conflicts, then add an edge
 			if isConflictBit(&distBit, i, j) {
 				graph[i] = append(graph[i], j)
@@ -105,6 +122,9 @@ func (e *Erasure) getMinimalTimeStripeScheduled(scheme [][]*blockInfo, replaceMa
 	// fmt.Println("max stripe number:", maxStripe)
 	cur, maxColor := 0, 0
 	for s := range scheme {
+		if scheme[s] == nil {
+			continue
+		}
 		if _, ok := stripeColor[s]; !ok {
 			cur = s
 			maxColor = 0
@@ -258,17 +278,24 @@ func (e *Erasure) StripeScheduleRecover(
 	var stripeOrder map[int][]int
 	var minTimeSlice int
 	var scheme [][]*blockInfo
+	var sumDisk []int
 	//step 1: find repair scheme
 	if options.Method1 == "FIRST_K" {
-		scheme, _ = e.findFirstKScheme(fi, replaceMap)
+		scheme, sumDisk = e.findFirstKScheme(fi, replaceMap)
 	} else if options.Method1 == "FASTEST_K" {
-		scheme, _ = e.findFastestKScheme(fi, replaceMap)
+		scheme, sumDisk = e.findFastestKScheme(fi, replaceMap)
 	} else if options.Method1 == "RANDOM_K" {
-		scheme, _ = e.findRandomScheme(fi, replaceMap)
+		scheme, sumDisk = e.findRandomScheme(fi, replaceMap)
 	} else if options.Method1 == "LB_HDR" {
-		scheme, _ = e.findBalanceScheme(fi, replaceMap)
+		scheme, sumDisk = e.findBalanceScheme(fi, replaceMap)
 	} else {
 		return nil, fmt.Errorf("unknown method1: %s", options.Method1)
+	}
+	if !e.Quiet {
+		fmt.Printf("scheme %d\n", options.Scheme)
+		fmt.Printf("\nmaxLoad:%d, sumLoad: %d, Avg: %.3f, SD: %.3f\n",
+			maxInts(sumDisk), sumInt(sumDisk, 0), avgInt(sumDisk[1:]), calcSDInt(sumDisk[1:]))
+		fmt.Printf("disk loads:\n%v\n", sumDisk)
 	}
 	//step 2: get stripe repaired order
 	if options.Method2 == "SS_HDR" {
@@ -287,24 +314,30 @@ func (e *Erasure) StripeScheduleRecover(
 			//for each slot
 			stripeNo := stripeOrder[t][c]
 			c := c
+			// eg.Go(
 			func() error {
 				erg := e.errgroupPool.Get().(*errgroup.Group)
 				defer e.errgroupPool.Put(erg)
 				// read blocks in parallel
 				failList := make(map[int]bool)
+				for i := 0; i < e.K+e.M; i++ {
+					diskId := dist[stripeNo][i]
+					disk := e.diskInfos[diskId]
+					blkStat := fi.blockInfos[stripeNo][i]
+					if !disk.available || blkStat.bstat != blkOK {
+						failList[diskId] = true
+					}
+				}
 				for i := 0; i < e.K; i++ {
 					i := i
+					blkId := scheme[stripeNo][i].stripeOffset
 					diskId := scheme[stripeNo][i].diskId
-					diskOffset := scheme[stripeNo][i].diskOffset
-					// disk := e.diskInfos[diskId]
-					// blkStat := fi.blockInfos[stripeNo][i]
-					// if !disk.available { || blkStat.bstat != blkOK {
-					// 	failList[diskId] = true
-					// 	continue
-					// }
+					offset := scheme[stripeNo][i].diskOffset
 					erg.Go(func() error {
-						offset := diskOffset
-						_, err := ifs[diskId].ReadAt(blobBuf[c][int64(i)*e.BlockSize:int64(i+1)*e.BlockSize],
+						start := int64(blkId) * e.BlockSize
+						end := int64(blkId+1) * e.BlockSize
+						_, err := ifs[diskId].ReadAt(
+							blobBuf[c][start:end],
 							int64(offset)*e.BlockSize)
 						if err != nil && err != io.EOF {
 							return err
@@ -363,7 +396,6 @@ func (e *Erasure) StripeScheduleRecover(
 									return nil
 
 								})
-
 							}
 						}
 						if err := egp.Wait(); err != nil {
